@@ -53,6 +53,27 @@ Run repeatable coding and visual benchmark suites and compare model throughput, 
 
 ![DGX Spark AI Lab model benchmark lab](docs/images/model-benchmark-lab.png)
 
+#### Comparison Scenarios
+
+**Standard Coding Comparison v1** provides an apples-to-apples model comparison with five server-enforced workloads:
+
+| Scenario | What it tests | Output budget | Streams |
+| --- | --- | ---: | ---: |
+| Quick code edit | Small, focused TypeScript implementation | 256 tokens | 1 |
+| Standard review | API refactoring, validation, timeouts, and tests | 512 tokens | 1 |
+| Debug and test repair | Root-cause analysis, a minimal safe patch, and regression coverage | 768 tokens | 1 |
+| Agentic refactor | Multi-step design, production code, assumptions, and a test matrix | 1,024 tokens | 1 |
+| Concurrent standard review | Aggregate throughput and latency under simultaneous requests | 512 tokens | 2 |
+
+For targeted testing, **Single Scenario** mode also includes structured JSON and tool contracts, multi-file feature implementation, long-context code review, custom coding prompts, adjustable output budgets, and 1–8 parallel streams.
+
+**Visual Analysis** benchmarks image-capable models with a fixed synthetic test image:
+
+- **Image extraction:** object counts, colors, shapes, positions, and strict JSON output.
+- **Visual reasoning:** spatial relationships, relative positions, and grounded scene summaries.
+
+Every run records time to first token (TTFT), prefill tokens, generation TPS, end-to-end latency, output tokens, completion status, and streamed model output. Saved leaderboards rank complete fixed-suite runs, keeping prompts, token budgets, and concurrency settings consistent across models.
+
 ### Model Controller
 
 Review available models, confirm readiness, and replace the active primary model through guarded lifecycle controls.
