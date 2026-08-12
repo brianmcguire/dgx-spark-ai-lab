@@ -47,6 +47,24 @@ Monitor system health, live vLLM throughput, request activity, latency, and reta
 
 ![DGX Spark AI Lab health dashboard](docs/images/health-dashboard.png)
 
+#### What the Health Dashboard Monitors
+
+The dashboard combines live inference telemetry with retained host metrics so model behavior can be compared with the resources supporting each request.
+
+| Area | Included diagnostics |
+| --- | --- |
+| System health | CPU and load, unified memory, disk, network, uptime, Docker, and optional PM2 services |
+| NVIDIA telemetry | GPU utilization, power, temperature, clock speed, device, and driver details |
+| vLLM activity | Input, output, and total TPS; token counts; request rate and outcomes; running and waiting requests |
+| Cache and scheduling | KV-cache utilization, prefix-cache hit rate, and request queue pressure |
+| Latency | Time to first token, queue time, end-to-end latency, and inter-token latency with p50, p95, and p99 views |
+| Inference diagnostics | Speculative-decoding acceptance, acceptance by token position, and prompt/output-size distributions |
+| Endpoint health | `/v1/models`, `/metrics`, gateway-to-vLLM connectivity, and a synthetic completion probe with measured latency |
+
+Live vLLM cards refresh every five seconds. Retained performance charts correlate throughput, request pressure, and latency with GPU, memory, CPU, disk, network, and process activity over time. Optional collectors are capability-driven, so sections such as PM2 or speculative decoding are shown only when the configured environment exposes them.
+
+The **Run Spark Doctor** action performs a deeper on-demand DGX diagnostic and folds the latest result back into the health view.
+
 ### Model Benchmark Lab
 
 Run repeatable coding and visual benchmark suites and compare model throughput, latency, and token usage.
@@ -79,6 +97,33 @@ Every run records time to first token (TTFT), prefill tokens, generation TPS, en
 Review available models, confirm readiness, and replace the active primary model through guarded lifecycle controls.
 
 ![DGX Spark AI Lab model controller](docs/images/model-controller.png)
+
+#### Model Inventory and Lifecycle
+
+The controller combines reviewed model recipes with optional Hugging Face cache discovery. Each model card identifies its provider, total and active parameters, architecture, quantization format, context limit, checkpoint size, KV-cache allocation, supported inputs, and recommended workload.
+
+| State | Meaning |
+| --- | --- |
+| Active | The model currently serving the primary vLLM endpoint and stable application alias |
+| Ready | The checkpoint is downloaded and has a reviewed launch recipe |
+| Loading | The candidate process is starting and progressing through model load and readiness checks |
+| Discovered / Setup Required | A local checkpoint was found, but its launch arguments must be reviewed before it can be started |
+| Unavailable | A configured checkpoint is not present or cannot currently be resolved on the target host |
+
+#### Guarded Model Replacement
+
+When **Replace Primary** is selected, the controller:
+
+1. Saves the current known-good launch configuration.
+2. Stops the active model and starts the selected candidate on the primary endpoint.
+3. Tracks startup using process state, logs, memory growth, shard loading, and endpoint readiness.
+4. Runs a model-appropriate smoke test for text generation or tool calling.
+5. Runs configured gateway and agent compatibility checks for downstream applications.
+6. Marks the candidate active only after validation succeeds, or automatically restores the prior model if startup or validation fails.
+
+Applications can continue using one stable endpoint and alias while the underlying model changes. Model-specific recipes can define the runtime image, quantization, context and cache limits, tool and reasoning parsers, multimodal settings, and speculative-decoding configuration without hard-coding those choices into the dashboard.
+
+The controller also provides explicit **Start**, **Stop**, and **Restart** service actions. For safety, lifecycle control is read-only by default and must be enabled in the local configuration before remote model changes are allowed.
 
 ## Why This Project
 
