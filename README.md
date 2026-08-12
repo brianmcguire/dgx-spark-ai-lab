@@ -1,4 +1,20 @@
-# DGX Spark AI Lab
+<div align="center">
+
+# ⚡ NVIDIA DGX Spark AI Lab ⚡
+
+### Health, model control, and repeatable inference benchmarks for local AI systems
+
+[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-76B900?style=flat-square)](#deployment-options)
+[![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=111111)](#tech-stack)
+[![Node.js](https://img.shields.io/badge/Node.js-22%2B-5FA04E?style=flat-square&logo=nodedotjs&logoColor=white)](#quick-start)
+[![vLLM](https://img.shields.io/badge/inference-vLLM-76B900?style=flat-square)](#architecture)
+[![License](https://img.shields.io/badge/license-MIT-2EA44F?style=flat-square)](LICENSE)
+
+by [Brian McGuire](https://x.com/brianmcguire)
+
+[![Follow Brian McGuire on X](https://img.shields.io/badge/FOLLOW%20ME%20ON%20X-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/brianmcguire)
+
+</div>
 
 A self-hosted operations dashboard for local AI inference: system health, vLLM telemetry, guarded model switching, and repeatable coding and visual benchmarks.
 
