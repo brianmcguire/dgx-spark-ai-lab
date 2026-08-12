@@ -53,6 +53,12 @@ Run repeatable coding and visual benchmark suites and compare model throughput, 
 
 ![DGX Spark AI Lab model benchmark lab](docs/images/model-benchmark-lab.png)
 
+### Model Controller
+
+Review available models, confirm readiness, and replace the active primary model through guarded lifecycle controls.
+
+![DGX Spark AI Lab model controller](docs/images/model-controller.png)
+
 ## Why This Project
 
 Most inference dashboards stop at charts. DGX Spark AI Lab combines observability with operational workflows:
