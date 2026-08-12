@@ -1,0 +1,16 @@
+{
+  "name": "Nvidia DGX Spark AI Lab",
+  "short_name": "DGX AI Lab",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#071311",
+  "theme_color": "#071311",
+  "icons": [
+    {
+      "src": "/dgx-spark-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

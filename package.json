@@ -1,0 +1,27 @@
+{
+  "name": "spark-health-dashboard",
+  "version": "1.0.0",
+  "description": "Local dashboard for DGX Spark health, spark-doctor scans, and PM2 service snapshots.",
+  "main": "server/index.js",
+  "scripts": {
+    "dev": "node server/index.js",
+    "start": "node server/index.js",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "npm run build",
+    "pm2:start": "pm2 start ecosystem.config.cjs",
+    "pm2:restart": "pm2 restart spark-health-dashboard",
+    "pm2:logs": "pm2 logs spark-health-dashboard"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "UNLICENSED",
+  "type": "module",
+  "dependencies": {
+    "@vitejs/plugin-react": "^6.0.3",
+    "lucide-react": "^1.23.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "vite": "^8.1.3"
+  }
+}
