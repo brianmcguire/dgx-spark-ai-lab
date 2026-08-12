@@ -1,8 +1,8 @@
 <div align="center">
 
-# ⚡ NVIDIA DGX Spark AI Lab ⚡
+# ⚡ Spark AI Lab ⚡
 
-### Health, model control, and repeatable inference benchmarks for local AI systems
+### Open-source inference monitoring, model control, and repeatable benchmarks for NVIDIA DGX Spark and compatible Linux hosts
 
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-76B900?style=flat-square)](#deployment-options)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=111111)](#tech-stack)
@@ -20,7 +20,7 @@ A self-hosted operations dashboard for local AI inference: system health, vLLM t
 
 Use it on one computer, or run the dashboard separately from a remote NVIDIA compute host. Monitoring and benchmarking work with a reachable OpenAI-compatible endpoint; full model lifecycle control is designed for a DGX Spark running vLLM under PM2.
 
-> This is an independent community project. It is not affiliated with or endorsed by NVIDIA. NVIDIA, DGX, and DGX Spark are trademarks of NVIDIA Corporation.
+> **Independent project notice:** Spark AI Lab is not affiliated with, sponsored by, or endorsed by NVIDIA Corporation. NVIDIA, the NVIDIA logo, DGX, and DGX Spark are trademarks and/or registered trademarks of NVIDIA Corporation in the United States and other countries.
 
 ## Contents
 
@@ -127,7 +127,7 @@ The controller also provides explicit **Start**, **Stop**, and **Restart** servi
 
 ## Why This Project
 
-Most inference dashboards stop at charts. DGX Spark AI Lab combines observability with operational workflows:
+Most inference dashboards stop at charts. Spark AI Lab combines observability with operational workflows:
 
 - **See the whole request path:** system resources, vLLM metrics, endpoint health, queues, caches, and latency percentiles.
 - **Change models deliberately:** readiness polling, application compatibility probes, and automatic rollback protect the current primary model.
