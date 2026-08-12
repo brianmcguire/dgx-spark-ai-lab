@@ -1157,20 +1157,34 @@ async function collectDgxModelControl() {
     cacheDirectory,
     readyMarker: readyMarker ? computePath(readyMarker) : null,
   }));
+  const encodedInstallProbe = Buffer.from(JSON.stringify({
+    root: CONTROLLER_PATHS.cache,
+    targets: modelInstallTargets,
+  }), "utf8").toString("base64");
   const remote = String.raw`
 export PATH="${CONTROLLER_HOME}/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 echo __PM2__
 pm2 jlist 2>/dev/null || echo '[]'
 echo __INSTALLED__
 python3 - <<'PY'
+import base64
 import json
 from pathlib import Path
-targets = ${JSON.stringify(modelInstallTargets)}
-root = Path('${CONTROLLER_PATHS.cache}')
-print(json.dumps({target['key']: (
-    any((root / target['cacheDirectory'] / 'snapshots').glob('*'))
-    and (not target.get('readyMarker') or Path(target['readyMarker']).is_file())
-) for target in targets}))
+
+# Decode structured data instead of embedding JSON as Python source. JSON null
+# is not a valid Python literal and previously caused every probe to fail.
+probe = json.loads(base64.b64decode('${encodedInstallProbe}').decode('utf-8'))
+root = Path(probe['root'])
+states = {}
+for target in probe['targets']:
+    downloaded = any((root / target['cacheDirectory'] / 'snapshots').glob('*'))
+    marker = target.get('readyMarker')
+    verified = downloaded and (not marker or Path(marker).is_file())
+    states[target['key']] = {
+        'downloaded': downloaded,
+        'verified': verified,
+    }
+print(json.dumps(states))
 PY
 echo __VLLM__
 VLLM_PROBE_HOST="$(tailscale ip -4 2>/dev/null | head -n 1 || true)"
@@ -1265,31 +1279,39 @@ cat ${MODEL_LAUNCH_SCRIPT} 2>/dev/null || true
     activeModelKey: active?.key || null,
     loadingModelKey,
     loadProgress,
-    models: DGX_MODEL_CATALOG.map((model) => ({
-      key: model.key,
-      label: model.label,
-      provider: model.provider,
-      providerLogo: model.providerLogo || null,
-      repository: model.repository,
-      precision: model.precision,
-      parameters: model.parameters,
-      architecture: model.architecture,
-      checkpointSize: model.checkpointSize,
-      bestFor: model.bestFor,
-      context: model.context,
-      kvCache: model.kvCache,
-      // A readiness marker is written only after a successful vLLM startup and
-      // smoke test. Keep the card state tied to that durable evidence instead
-      // of requiring a manual catalog-status update after each verification.
-      status: installed?.[model.key] ? "ready" : model.status,
-      description: model.description,
-      installed: Boolean(installed?.[model.key]),
-      active: active?.key === model.key,
-      loading: loadingModelKey === model.key,
-      loadProgress: loadingModelKey === model.key ? loadProgress : null,
-      servedNames: model.servedNames,
-      modalities: model.modalities || "Text",
-    })),
+    models: DGX_MODEL_CATALOG.map((model) => {
+      const installState = installed?.[model.key];
+      const downloaded = typeof installState === "object"
+        ? Boolean(installState?.downloaded)
+        : Boolean(installState);
+      const verified = typeof installState === "object"
+        ? Boolean(installState?.verified)
+        : Boolean(installState);
+
+      return {
+        key: model.key,
+        label: model.label,
+        provider: model.provider,
+        providerLogo: model.providerLogo || null,
+        repository: model.repository,
+        precision: model.precision,
+        parameters: model.parameters,
+        architecture: model.architecture,
+        checkpointSize: model.checkpointSize,
+        bestFor: model.bestFor,
+        context: model.context,
+        kvCache: model.kvCache,
+        status: verified ? "ready" : downloaded ? "staged" : "unavailable",
+        description: model.description,
+        installed: downloaded,
+        verified,
+        active: active?.key === model.key,
+        loading: loadingModelKey === model.key,
+        loadProgress: loadingModelKey === model.key ? loadProgress : null,
+        servedNames: model.servedNames,
+        modalities: model.modalities || "Text",
+      };
+    }),
     lastAction: lastModelControlAction,
   };
 }
