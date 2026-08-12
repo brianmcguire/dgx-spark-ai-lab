@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "profile": "local-monitoring",
+  "dashboard": {
+    "title": "Local AI Operations Lab",
+    "brand": "AI Operations",
+    "subtitle": "Inference health, telemetry, and repeatable model benchmarks.",
+    "host": "127.0.0.1",
+    "port": 4174,
+    "mode": "readonly"
+  },
+  "compute": {
+    "label": "Local host",
+    "connection": "local",
+    "host": "local",
+    "platform": "auto",
+    "nvidiaTelemetry": false
+  },
+  "inference": {
+    "apiUrl": "http://127.0.0.1:8000/v1",
+    "metricsUrl": "http://127.0.0.1:8000/metrics"
+  },
+  "services": {
+    "pm2": { "enabled": false, "label": "PM2 services", "connection": "local", "host": "local" },
+    "gateway": { "enabled": false, "label": "LLM gateway", "apiUrl": "http://127.0.0.1:4010/v1" }
+  },
+  "controller": {
+    "enabled": false,
+    "type": "dgx-vllm-pm2",
+    "serviceName": "spark-qwen",
+    "containerName": "spark-vllm-primary",
+    "port": 8000,
+    "home": "$HOME",
+    "launchScript": ""
+  },
+  "sparkDoctor": { "enabled": false, "directory": "$HOME/src/spark-doctor" },
+  "security": {
+    "trustedNetworkOnly": true,
+    "controlToken": "",
+    "allowUnauthenticatedControl": false
+  },
+  "paths": { "data": ".data" }
+}

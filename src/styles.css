@@ -22,6 +22,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  overflow-x: hidden;
   background: linear-gradient(135deg, #050705 0%, #0a0f0a 54%, #060806 100%);
 }
 
@@ -263,6 +264,11 @@ main {
 .workspace-tabs strong,
 .workspace-tabs small {
   display: block;
+}
+
+.tab-label-mobile,
+.action-label-mobile {
+  display: none !important;
 }
 
 .workspace-tabs strong {
@@ -2503,6 +2509,16 @@ textarea:focus-visible {
     gap: 0.7rem;
   }
 
+  .topbar > div:first-child {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .topbar h1,
+  .topbar p {
+    overflow-wrap: anywhere;
+  }
+
   .top-actions {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2525,7 +2541,9 @@ textarea:focus-visible {
     min-height: 2.85rem;
     justify-content: center;
     padding-inline: 0.5rem;
-    white-space: nowrap;
+    line-height: 1.15;
+    text-align: center;
+    white-space: normal;
   }
 
   .workspace-tabs {
@@ -2535,8 +2553,10 @@ textarea:focus-visible {
   .workspace-tabs button,
   .workspace-tabs button:last-child {
     min-height: 4.55rem;
-    align-items: flex-start;
-    gap: 0.5rem;
+    align-items: center;
+    flex-direction: column;
+    gap: 0.35rem;
+    justify-content: center;
     padding: 0.65rem 0.55rem;
     border-right: 1px solid rgba(174, 196, 188, 0.12);
     border-bottom: 0;
@@ -2560,13 +2580,27 @@ textarea:focus-visible {
     display: none;
   }
 
-  .tab-label-full {
-    display: block;
-    overflow: visible;
+  .workspace-tabs .tab-label-full {
+    display: none;
+  }
+
+  .workspace-tabs .tab-label-mobile {
+    display: block !important;
+    overflow: hidden;
+    width: 100%;
     font-size: 0.72rem;
     line-height: 1.15;
-    text-overflow: clip;
-    white-space: normal;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .top-actions .action-label-full {
+    display: none;
+  }
+
+  .top-actions .action-label-mobile {
+    display: inline !important;
   }
 
   .hero-status {

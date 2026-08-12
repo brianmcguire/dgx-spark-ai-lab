@@ -1,59 +1,102 @@
-# NVIDIA DGX Spark AI Lab
+# DGX Spark AI Lab
 
-Private operations dashboard for a DGX Spark and its supporting Mac Mini services. It combines system health, vLLM telemetry, primary-model control, and repeatable model benchmarks.
+A self-hosted dashboard for local AI inference health, vLLM telemetry, controlled model switching, and repeatable coding and visual benchmarks.
+
+The project supports a single local computer or a split dashboard/compute deployment. The full model controller is designed for a DGX Spark running vLLM under PM2, while monitoring and benchmarking can run against any reachable OpenAI-compatible endpoint.
+
+> This is an independent community project. It is not affiliated with or endorsed by NVIDIA. NVIDIA, DGX, and DGX Spark are trademarks of NVIDIA Corporation.
 
 ## Features
 
-- DGX Spark health, memory, GPU, power, temperature, disk, and network telemetry
-- vLLM token throughput, latency, queue, cache, and speculative-decoding diagnostics
-- Controlled primary-model replacement with readiness checks and rollback
-- Coding and visual model benchmark workflows with retained history
-- Mac Mini PM2 service status and agent-gateway validation
-- Responsive desktop and mobile interface
+- CPU, memory, disk, network, NVIDIA GPU, power, and temperature telemetry
+- vLLM throughput, queue, cache, latency percentile, endpoint, and speculative-decoding diagnostics
+- Coding and visual benchmark suites with persistent, comparable history
+- Optional model controller with readiness checks, smoke tests, and automatic rollback
+- Local or SSH collectors
+- Optional PM2 service and LiteLLM gateway health
+- Capability-driven responsive UI for desktop and mobile
+- Safe read-only localhost profile by default
 
-## Requirements
+## Deployment Options
 
-- Node.js 22 or newer
-- Passwordless SSH access to the DGX Spark host configured by `DGX_HOST`
-- A vLLM OpenAI-compatible endpoint
-- Optional LiteLLM gateway for stable application routing
+| Topology | Health | Benchmarks | Model control |
+| --- | --- | --- | --- |
+| One Mac, Linux PC, or DGX system | Yes | Optional | DGX/vLLM profile only |
+| Dashboard host plus remote compute over SSH | Yes | Yes | DGX/vLLM profile only |
+| Any OpenAI-compatible inference endpoint | Basic | Yes | No |
 
-## Local Setup
+Rich GPU and vLLM panels appear only when their telemetry is available. A Mac-only installation does not require a DGX Spark.
+
+## Quick Start
+
+Requirements: Node.js 22 or newer and npm.
 
 ```bash
-npm install
-cp .env.example .env
+git clone https://github.com/brianmcguire/dgx-spark-ai-lab.git
+cd dgx-spark-ai-lab
+npm ci
+npm run setup
+npm run doctor
 npm run build
-HOST=0.0.0.0 PORT=4174 npm start
+npm start
 ```
 
-The dashboard is then available at `http://localhost:4174`. When bound to `0.0.0.0`, it can also be reached through the Mac Mini's Tailscale address.
+Open `http://127.0.0.1:4174`. The default profile is read-only and local-only.
 
-## Configuration
+## Profiles
 
-The server supports these environment variables:
+`npm run setup` creates the ignored `config/dashboard.local.json` file. Available starting points are:
 
-| Variable | Purpose |
-| --- | --- |
-| `HOST` | Dashboard bind address |
-| `PORT` | Dashboard port |
-| `DGX_HOST` | SSH host or alias for the DGX Spark |
-| `MAC_MINI_HOST` | SSH target used for Mac Mini collectors |
-| `VLLM_METRICS_URL` | vLLM Prometheus metrics endpoint |
-| `VLLM_API_URL` | vLLM OpenAI-compatible API base URL |
-| `VLLM_API_KEY` | Optional vLLM API key |
-| `AGENT_GATEWAY_API_URL` | Stable LiteLLM or application gateway API URL |
-| `HISTORY_LIMIT` | Maximum retained health samples |
-| `HISTORY_RETENTION_DAYS` | Health-history retention period |
-| `HF_CACHE_TTL_MS` | Hugging Face metadata cache duration |
-| `VLLM_LIVE_POLL_INTERVAL_MS` | Live vLLM polling interval |
-| `SYNTHETIC_PROBE_INTERVAL_MS` | Synthetic endpoint-probe interval |
-| `LATENCY_HISTORY_LIMIT` | Maximum retained latency samples |
+- **Local monitoring:** health and available telemetry, no write operations
+- **Local benchmarking:** sends benchmark requests to a local OpenAI-compatible endpoint
+- **Remote DGX Spark:** SSH telemetry and optional vLLM/PM2 model control
 
-The included LiteLLM configuration and launch-service files are deployment templates. Adjust hostnames and filesystem paths for the target Mac before installing them.
+Advanced users can copy and edit:
+
+- `config/default.json`
+- `config/local-benchmark.example.json`
+- `config/remote-dgx.example.json`
+- `config/models.example.json`
+
+See [configuration](docs/CONFIGURATION.md) for precedence, capabilities, and environment overrides.
 
 ## Security
 
-This dashboard can stop and replace the active vLLM model. Keep it private and restrict access through Tailscale or another trusted network. Do not expose it directly to the public internet.
+Model replacement and benchmark routes can consume substantial resources or interrupt applications. For full mode:
 
-Runtime databases, benchmark history, generated builds, dependencies, logs, and local environment files are excluded from Git.
+```bash
+export DASHBOARD_CONTROL_TOKEN='use-a-long-random-value'
+npm start
+```
+
+Use the **Unlock** command in the dashboard to enter that token. Keep the dashboard on localhost or a private network such as Tailscale. Do not publish it directly to the internet.
+
+The setup wizard generates a private control token for remote full-mode profiles. An advanced deployment already protected by a private-network policy may explicitly set `security.allowUnauthenticatedControl` to `true`, but this removes application-level authentication and should not be used on a publicly reachable host.
+
+Review [SECURITY.md](SECURITY.md) before enabling model control.
+
+## Production Service
+
+Build and start with PM2:
+
+```bash
+npm run build
+npm run pm2:start
+pm2 save
+```
+
+See [deployment](docs/DEPLOYMENT.md) for reboot persistence and private-network guidance. An optional stable LiteLLM application alias is demonstrated in `examples/litellm/`.
+
+## Development
+
+```bash
+npm run dev
+npm test
+npm run build
+```
+
+Architecture details are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Contributions are covered by [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+[MIT](LICENSE)

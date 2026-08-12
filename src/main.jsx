@@ -10,6 +10,7 @@ import {
   Gauge,
   HardDrive,
   ImageIcon,
+  LockKeyhole,
   MemoryStick,
   Play,
   RefreshCcw,
@@ -35,6 +36,28 @@ const DASHBOARD_TABS = [
   { id: "controller", label: "Model Controller", detail: "Primary vLLM service control", icon: TerminalSquare },
   { id: "latency", label: "Model Benchmark Lab", detail: "Coding and visual throughput benchmarks", icon: Gauge },
 ];
+
+const FALLBACK_CONFIG = {
+  title: "AI Operations Lab",
+  brand: "AI Operations",
+  subtitle: "Inference health, telemetry, and repeatable model benchmarks.",
+  compute: { label: "Compute host", host: "local", connection: "local" },
+  services: { pm2: { enabled: false }, gateway: { enabled: false } },
+  capabilities: { modelControl: false, sparkDoctor: false, benchmarks: false },
+};
+
+function visibleTabs(config) {
+  return DASHBOARD_TABS.filter(({ id }) => (
+    id === "health"
+    || (id === "controller" && config.capabilities?.modelControl)
+    || (id === "latency" && config.capabilities?.benchmarks)
+  ));
+}
+
+function controlHeaders(headers = {}) {
+  const token = window.localStorage.getItem("ai-lab-control-token");
+  return token ? { ...headers, authorization: `Bearer ${token}` } : headers;
+}
 
 const HASH_TO_TAB = {
   dgx: "health",
@@ -109,7 +132,7 @@ function formatTimeLabel(value) {
 }
 
 async function api(path, options) {
-  const res = await fetch(path, options);
+  const res = await fetch(path, options ? { ...options, headers: controlHeaders(options.headers) } : options);
   if (!res.ok) throw new Error(`Request failed: ${res.status}`);
   return res.json();
 }
@@ -117,7 +140,7 @@ async function api(path, options) {
 async function streamApi(path, payload, onEvent) {
   const response = await fetch(path, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: controlHeaders({ "content-type": "application/json" }),
     body: JSON.stringify(payload),
   });
   if (!response.ok || !response.body) {
@@ -1438,40 +1461,63 @@ function LatencyLab() {
   );
 }
 
-function Header({ loading, running, onRefresh, onRunDoctor, updatedAt }) {
+function Header({ config, loading, running, onRefresh, onRunDoctor, updatedAt }) {
+  const [controlsUnlocked, setControlsUnlocked] = useState(() => Boolean(window.localStorage.getItem("ai-lab-control-token")));
+
+  function configureControlToken() {
+    if (controlsUnlocked) {
+      window.localStorage.removeItem("ai-lab-control-token");
+      setControlsUnlocked(false);
+      return;
+    }
+    const token = window.prompt("Enter the dashboard control token");
+    if (!token) return;
+    window.localStorage.setItem("ai-lab-control-token", token);
+    setControlsUnlocked(true);
+  }
+
   return (
     <header className="topbar">
       <div>
-        <h1>Nvidia DGX Spark AI Lab</h1>
-        <p>DGX Spark health, model control, benchmarks, and Mac Mini services.</p>
+        <h1>{config.title}</h1>
+        <p>{config.subtitle}</p>
       </div>
       <div className="top-actions">
         <div className="updated">Updated {updatedAt ? new Date(updatedAt).toLocaleTimeString() : "never"}</div>
+        {config.controlAuthRequired && (
+          <button type="button" onClick={configureControlToken} title={controlsUnlocked ? "Lock write controls" : "Unlock write controls"}>
+            <LockKeyhole size={16} />
+            {controlsUnlocked ? "Lock" : "Unlock"}
+          </button>
+        )}
         <button onClick={onRefresh} disabled={loading || running}>
           <RefreshCcw size={16} className={loading ? "spin" : ""} />
           Refresh
         </button>
-        <button className="primary" onClick={onRunDoctor} disabled={loading || running}>
-          <Play size={16} />
-          {running ? "Running..." : "Run Spark Doctor"}
-        </button>
+        {config.capabilities?.sparkDoctor && (
+          <button className="primary" onClick={onRunDoctor} disabled={loading || running}>
+            <Play size={16} />
+            <span className="action-label-full">{running ? "Running..." : "Run Spark Doctor"}</span>
+            <span className="action-label-mobile">{running ? "Running" : "Doctor"}</span>
+          </button>
+        )}
       </div>
     </header>
   );
 }
 
-function Sidebar({ dgx, pm2, gateway, activeTab, onNavigate }) {
+function Sidebar({ config, tabs, dgx, pm2, gateway, activeTab, onNavigate }) {
   return (
     <aside className="sidebar">
       <div className="brand">
         <img className="brand-avatar" src="/dgx-spark-icon.png" alt="DGX Spark profile" />
         <div>
-          <strong>Spark Control</strong>
-          <span>Models, benchmarks, and system telemetry</span>
+          <strong>{config.brand || config.title}</strong>
+          <span>{config.capabilities?.modelControl ? "Models, benchmarks, and system telemetry" : "Inference monitoring and telemetry"}</span>
         </div>
       </div>
       <nav>
-        {DASHBOARD_TABS.map(({ id, label, icon: Icon }) => (
+        {tabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             type="button"
@@ -1485,28 +1531,29 @@ function Sidebar({ dgx, pm2, gateway, activeTab, onNavigate }) {
         ))}
       </nav>
       <div className="rail-card">
-        <span>DGX target</span>
-        <strong>{dgx?.host || "DGX_SPARK"}</strong>
+        <span>{config.compute?.label || "Compute target"}</span>
+        <strong>{dgx?.host || config.compute?.host || "local"}</strong>
         <StatusPill ok={dgx?.ok !== false}>{dgx?.ok === false ? "offline" : "reachable"}</StatusPill>
       </div>
-      <div className="rail-card">
+      {config.services?.pm2?.enabled && <div className="rail-card">
         <span>PM2 target</span>
         <strong>{pm2?.host || "nexus-mac-mini.local"}</strong>
         <StatusPill ok={pm2?.ok}>{pm2?.ok ? "connected" : "needs SSH"}</StatusPill>
-      </div>
-      <div className="rail-card">
+      </div>}
+      {config.services?.gateway?.enabled && <div className="rail-card">
         <span>LLM gateway</span>
         <strong>spark-production</strong>
         <StatusPill ok={gateway?.ok}>{gateway?.ok ? "routing" : "offline"}</StatusPill>
-      </div>
+      </div>}
     </aside>
   );
 }
 
-function DashboardTabs({ activeTab, onNavigate }) {
+function DashboardTabs({ tabs, activeTab, onNavigate }) {
+  const mobileLabels = { health: "Health", controller: "Models", latency: "Benchmarks" };
   return (
     <div className="workspace-tabs" role="tablist" aria-label="Dashboard views">
-      {DASHBOARD_TABS.map(({ id, label, detail, icon: Icon }) => (
+      {tabs.map(({ id, label, detail, icon: Icon }) => (
         <button
           key={id}
           type="button"
@@ -1518,6 +1565,7 @@ function DashboardTabs({ activeTab, onNavigate }) {
           <span className="workspace-tab-icon"><Icon size={19} /></span>
           <span>
             <strong className="tab-label-full">{label}</strong>
+            <strong className="tab-label-mobile">{mobileLabels[id] || label}</strong>
             <small>{detail}</small>
           </span>
         </button>
@@ -1756,6 +1804,8 @@ function App() {
   const [activeTab, setActiveTab] = useState("health");
   const [history, setHistory] = useState([]);
   const [liveVllm, setLiveVllm] = useState(null);
+  const appConfig = snapshot?.config || FALLBACK_CONFIG;
+  const tabs = useMemo(() => visibleTabs(appConfig), [appConfig]);
 
   async function refresh(force = false) {
     setLoading(true);
@@ -1824,6 +1874,13 @@ function App() {
     return () => window.removeEventListener("hashchange", syncActiveFromHash);
   }, []);
 
+  useEffect(() => {
+    if (!tabs.some(({ id }) => id === activeTab)) {
+      setActiveTab("health");
+      window.history.replaceState(null, "", "#health");
+    }
+  }, [activeTab, tabs]);
+
   function handleNavigate(tabId) {
     setActiveTab(tabId);
     window.history.replaceState(null, "", `#${tabId}`);
@@ -1837,17 +1894,20 @@ function App() {
 
   return (
     <div className="app-shell">
-      <Sidebar dgx={dgx} pm2={pm2} gateway={gateway} activeTab={activeTab} onNavigate={handleNavigate} />
+      <Sidebar config={appConfig} tabs={tabs} dgx={dgx} pm2={pm2} gateway={gateway} activeTab={activeTab} onNavigate={handleNavigate} />
       <main>
-        <Header loading={loading} running={running} onRefresh={() => refresh(true)} onRunDoctor={runDoctor} updatedAt={snapshot?.collectedAt} />
+        <Header config={appConfig} loading={loading} running={running} onRefresh={() => refresh(true)} onRunDoctor={runDoctor} updatedAt={snapshot?.collectedAt} />
         {error && <div className="error-banner"><AlertTriangle size={18} />{error}</div>}
-        <DashboardTabs activeTab={activeTab} onNavigate={handleNavigate} />
+        <DashboardTabs tabs={tabs} activeTab={activeTab} onNavigate={handleNavigate} />
         <div className="tab-view health-view" role="tabpanel" hidden={activeTab !== "health"}>
           <section className="hero-status" id="dgx">
             <div>
               <StatusPill ok={ok}>{ok ? "Overall OK" : "Needs attention"}</StatusPill>
-              <h2>{dgx?.summary?.hostname || "DGX Spark"} infrastructure view</h2>
-              <p>Live data is collected over SSH. Spark Doctor can be rerun from this page and the latest report is folded back into the dashboard.</p>
+              <h2>{dgx?.summary?.hostname || appConfig.compute?.label || "Compute host"} infrastructure view</h2>
+              <p>
+                Live data is collected {appConfig.compute?.connection === "ssh" ? "over SSH" : "from this host"}.
+                {appConfig.capabilities?.sparkDoctor ? " Spark Doctor results are folded into the dashboard." : " Inference and system telemetry refresh automatically."}
+              </p>
             </div>
             <div className="signal-card">
               <Activity size={26} />
@@ -1863,18 +1923,18 @@ function App() {
           <InferenceDiagnosticsPanel dgx={dgx} liveVllm={liveVllm} history={history} />
           <div className="content-grid">
             <ProcessTable processes={dgx?.processes} />
-            <Pm2Panel pm2={pm2} />
-            <GatewayPanel gateway={gateway} />
+            {appConfig.services?.pm2?.enabled && <Pm2Panel pm2={pm2} />}
+            {appConfig.services?.gateway?.enabled && <GatewayPanel gateway={gateway} />}
             <DockerPanel containers={dgx?.docker} />
-            <SparkDoctorPanel dgx={dgx} lastRun={lastRun} />
+            {appConfig.capabilities?.sparkDoctor && <SparkDoctorPanel dgx={dgx} lastRun={lastRun} />}
           </div>
         </div>
-        <div className="tab-view" role="tabpanel" hidden={activeTab !== "controller"}>
+        {appConfig.capabilities?.modelControl && <div className="tab-view" role="tabpanel" hidden={activeTab !== "controller"}>
           <ModelControlPanel />
-        </div>
-        <div className="tab-view" role="tabpanel" hidden={activeTab !== "latency"}>
+        </div>}
+        {appConfig.capabilities?.benchmarks && <div className="tab-view" role="tabpanel" hidden={activeTab !== "latency"}>
           <LatencyLab />
-        </div>
+        </div>}
       </main>
     </div>
   );

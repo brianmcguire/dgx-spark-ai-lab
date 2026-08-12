@@ -1,0 +1,12 @@
+model_list:
+  - model_name: local-production
+    litellm_params: &local_backend
+      model: openai/local-model
+      api_base: http://127.0.0.1:8000/v1
+      api_key: os.environ/VLLM_API_KEY
+      timeout: 300
+  - model_name: local-model
+    litellm_params: *local_backend
+
+litellm_settings:
+  drop_params: true

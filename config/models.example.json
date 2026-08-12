@@ -1,0 +1,28 @@
+{
+  "mode": "merge",
+  "models": [
+    {
+      "key": "my-model-nvfp4",
+      "label": "My Model NVFP4",
+      "provider": "My Organization",
+      "repository": "organization/model-repository",
+      "cacheDirectory": "models--organization--model-repository",
+      "servedNames": ["production-model", "my-model-nvfp4"],
+      "precision": "NVFP4",
+      "parameters": "30B total · 3B active",
+      "architecture": "MoE transformer",
+      "checkpointSize": "22 GB",
+      "bestFor": "Local inference and evaluation",
+      "context": "64K",
+      "kvCache": "8 GB",
+      "status": "ready",
+      "modalities": "Text",
+      "description": "A locally downloaded vLLM-compatible checkpoint.",
+      "runtime": "docker",
+      "dockerImage": "vllm/vllm-openai:latest",
+      "maxModelLen": 65536,
+      "startupTimeoutSeconds": 900,
+      "dockerArgs": "--trust-remote-code"
+    }
+  ]
+}

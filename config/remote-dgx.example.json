@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "profile": "remote-dgx",
+  "dashboard": {
+    "title": "DGX Spark AI Lab",
+    "brand": "Spark Control",
+    "subtitle": "DGX Spark health, model control, benchmarks, and supporting services.",
+    "host": "0.0.0.0",
+    "port": 4174,
+    "mode": "full"
+  },
+  "compute": {
+    "label": "DGX Spark",
+    "connection": "ssh",
+    "host": "your-dgx-ssh-alias",
+    "platform": "linux",
+    "nvidiaTelemetry": true
+  },
+  "inference": {
+    "apiUrl": "http://your-dgx-host:8000/v1",
+    "metricsUrl": "http://your-dgx-host:8000/metrics"
+  },
+  "services": {
+    "pm2": { "enabled": true, "label": "Supporting services", "connection": "local", "host": "local" },
+    "gateway": { "enabled": true, "label": "LLM gateway", "apiUrl": "http://127.0.0.1:4010/v1" }
+  },
+  "controller": {
+    "enabled": true,
+    "type": "dgx-vllm-pm2",
+    "serviceName": "spark-qwen",
+    "containerName": "spark-vllm-primary",
+    "port": 8000,
+    "home": "/home/your-user",
+    "launchScript": "/home/your-user/start-vllm.sh",
+    "paths": {
+      "nativeRuntime": "/home/your-user/venvs/vllm/bin/vllm",
+      "nativeActivate": "/home/your-user/venvs/vllm/bin/activate"
+    }
+  },
+  "sparkDoctor": { "enabled": false, "directory": "$HOME/src/spark-doctor" },
+  "security": {
+    "trustedNetworkOnly": true,
+    "controlToken": "replace-with-a-random-secret",
+    "allowUnauthenticatedControl": false
+  },
+  "paths": { "data": ".data" }
+}

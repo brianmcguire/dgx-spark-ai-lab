@@ -1,32 +1,51 @@
 import { createServer } from "node:http";
 import { execFile } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { extname, join, normalize } from "node:path";
+import { extname, isAbsolute, join, normalize, resolve } from "node:path";
+import os from "node:os";
 import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
+import { loadConfig, loadModelCatalog, publicConfig } from "./config.js";
 
-const PORT = Number(process.env.PORT || 4174);
-const HOST = process.env.HOST || "127.0.0.1";
-const DGX_HOST = process.env.DGX_HOST || "DGX_SPARK";
-const MAC_MINI_HOST = process.env.MAC_MINI_HOST || "nexus@nexuss-mac-mini";
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
+const CONFIG = await loadConfig();
+const PORT = CONFIG.dashboard.port;
+const HOST = CONFIG.dashboard.host;
+const DGX_HOST = CONFIG.compute.host;
+const MAC_MINI_HOST = CONFIG.services.pm2.host;
+const DATA_DIR = isAbsolute(CONFIG.paths.data) ? CONFIG.paths.data : resolve(ROOT, CONFIG.paths.data);
 const DIST = join(ROOT, "dist");
-const HISTORY_PATH = join(ROOT, ".data", "health-history.json");
-const HISTORY_DB_PATH = join(ROOT, ".data", "health-history.sqlite");
+const HISTORY_PATH = join(DATA_DIR, "health-history.json");
+const HISTORY_DB_PATH = join(DATA_DIR, "health-history.sqlite");
 const HISTORY_LIMIT = Number(process.env.HISTORY_LIMIT || 1440);
 const HISTORY_RETENTION_DAYS = Number(process.env.HISTORY_RETENTION_DAYS || 90);
 const HF_CACHE_TTL_MS = Number(process.env.HF_CACHE_TTL_MS || 60 * 60 * 1000);
-const VLLM_METRICS_URL = process.env.VLLM_METRICS_URL || "http://spark-1728.local:8000/metrics";
-const VLLM_API_URL = (process.env.VLLM_API_URL || "http://spark-1728.local:8000/v1").replace(/\/$/, "");
+const VLLM_METRICS_URL = CONFIG.inference.metricsUrl;
+const VLLM_API_URL = CONFIG.inference.apiUrl;
 const VLLM_API_KEY = process.env.VLLM_API_KEY || "";
-const AGENT_GATEWAY_API_URL = (process.env.AGENT_GATEWAY_API_URL || "http://127.0.0.1:4010/v1").replace(/\/$/, "");
+const AGENT_GATEWAY_API_URL = CONFIG.services.gateway.apiUrl;
 const VLLM_LIVE_POLL_INTERVAL_MS = Number(process.env.VLLM_LIVE_POLL_INTERVAL_MS || 5000);
 const SYNTHETIC_PROBE_INTERVAL_MS = Number(process.env.SYNTHETIC_PROBE_INTERVAL_MS || 10 * 60 * 1000);
-const LATENCY_HISTORY_PATH = join(ROOT, ".data", "latency-runs.json");
+const LATENCY_HISTORY_PATH = join(DATA_DIR, "latency-runs.json");
 const LATENCY_HISTORY_LIMIT = Number(process.env.LATENCY_HISTORY_LIMIT || 250);
+const CONTROLLER_HOME = CONFIG.controller.home;
+const CONTROLLER_PATHS = CONFIG.controller.paths;
+const MODEL_SERVICE_NAME = CONFIG.controller.serviceName;
+const MODEL_CONTAINER_NAME = CONFIG.controller.containerName;
+const MODEL_CONTROLLER_PORT = CONFIG.controller.port;
+const MODEL_LAUNCH_SCRIPT = CONFIG.controller.launchScript;
+const MODEL_BACKUP_SCRIPT = `${MODEL_LAUNCH_SCRIPT}.last-known-good`;
+const MODEL_OUT_LOG = `${CONTROLLER_PATHS.pm2Logs}/${MODEL_SERVICE_NAME}-out.log`;
+const MODEL_ERROR_LOG = `${CONTROLLER_PATHS.pm2Logs}/${MODEL_SERVICE_NAME}-error.log`;
 
-await mkdir(join(ROOT, ".data"), { recursive: true });
+function computePath(path) {
+  return String(path || "")
+    .replaceAll("$HOME", CONTROLLER_HOME)
+    .replaceAll("${HOME}", CONTROLLER_HOME);
+}
+
+await mkdir(DATA_DIR, { recursive: true });
 const historyDb = new DatabaseSync(HISTORY_DB_PATH);
 historyDb.exec(`
   PRAGMA journal_mode = WAL;
@@ -269,7 +288,7 @@ const LEGACY_LATENCY_MODEL_ALIASES = new Map([
   ["qwen3-14b", "qwen3.6-35b-a3b-nvfp4"],
 ]);
 
-const DGX_MODEL_CATALOG = [
+const BUILTIN_DGX_MODEL_CATALOG = [
   {
     key: "redhat-qwen36-35b-nvfp4",
     label: "Qwen 3.6 35B A3B NVFP4",
@@ -296,7 +315,7 @@ const DGX_MODEL_CATALOG = [
     providerLogo: "qwen",
     repository: "nvidia/Qwen3.6-27B-NVFP4",
     cacheDirectory: "models--nvidia--Qwen3.6-27B-NVFP4",
-    readyMarker: "/home/c3po/.local/share/spark-models/qwen3-6-27b-nvfp4.ready",
+    readyMarker: `${CONTROLLER_HOME}/.local/share/spark-models/qwen3-6-27b-nvfp4.ready`,
     servedNames: ["qwen3-14b", "qwen3.6-27b-nvfp4"],
     precision: "NVFP4",
     parameters: "27B dense",
@@ -323,7 +342,7 @@ const DGX_MODEL_CATALOG = [
     providerLogo: "google",
     repository: "nvidia/Gemma-4-26B-A4B-NVFP4",
     cacheDirectory: "models--nvidia--Gemma-4-26B-A4B-NVFP4",
-    readyMarker: "/home/c3po/.local/share/spark-models/gemma4-26b-a4b-nvfp4.ready",
+    readyMarker: `${CONTROLLER_HOME}/.local/share/spark-models/gemma4-26b-a4b-nvfp4.ready`,
     servedNames: ["qwen3-14b", "gemma4-26b-a4b-nvfp4"],
     precision: "NVFP4",
     parameters: "25.2B total · 3.8B active",
@@ -350,7 +369,7 @@ const DGX_MODEL_CATALOG = [
     providerLogo: "nvidia",
     repository: "nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-NVFP4",
     cacheDirectory: "models--nvidia--Nemotron-3-Nano-Omni-30B-A3B-Reasoning-NVFP4",
-    readyMarker: "/home/c3po/.local/share/spark-models/nemotron-3-nano-omni-30b-a3b-reasoning-nvfp4.ready",
+    readyMarker: `${CONTROLLER_HOME}/.local/share/spark-models/nemotron-3-nano-omni-30b-a3b-reasoning-nvfp4.ready`,
     servedNames: ["qwen3-14b", "nemotron-3-nano-omni-30b"],
     precision: "NVFP4",
     parameters: "31B total · ~3B active",
@@ -365,7 +384,7 @@ const DGX_MODEL_CATALOG = [
     chatTemplate: false,
     enableToolChoice: false,
     readinessProbe: "text",
-    extraVllmArgs: "--tensor-parallel-size 1 --trust-remote-code --video-pruning-rate 0.5 --max-num-seqs 32 --allowed-local-media-path /home/c3po/vllm-media --media-io-kwargs '{\"video\": {\"fps\": 2, \"num_frames\": 128}}'",
+    extraVllmArgs: `--tensor-parallel-size 1 --trust-remote-code --video-pruning-rate 0.5 --max-num-seqs 32 --allowed-local-media-path ${CONTROLLER_PATHS.media} --media-io-kwargs '{"video": {"fps": 2, "num_frames": 128}}'`,
   },
   {
     key: "nvidia-nemotron-35-lightning-30b-a3b-nvfp4",
@@ -398,7 +417,7 @@ const DGX_MODEL_CATALOG = [
     providerLogo: "poolside",
     repository: "poolside/Laguna-XS-2.1-NVFP4",
     cacheDirectory: "models--poolside--Laguna-XS-2.1-NVFP4",
-    readyMarker: "/home/c3po/.local/share/spark-models/laguna-xs-2-1-nvfp4.ready",
+    readyMarker: `${CONTROLLER_HOME}/.local/share/spark-models/laguna-xs-2-1-nvfp4.ready`,
     servedNames: ["qwen3-14b", "laguna-xs-2-1-nvfp4"],
     precision: "NVFP4",
     parameters: "33B total · 3B active",
@@ -421,7 +440,7 @@ const DGX_MODEL_CATALOG = [
     providerLogo: "poolside",
     repository: "poolside/Laguna-S-2.1-NVFP4",
     cacheDirectory: "models--poolside--Laguna-S-2.1-NVFP4",
-    readyMarker: "/home/c3po/.local/share/spark-models/laguna-s-2-1-nvfp4.ready",
+    readyMarker: `${CONTROLLER_HOME}/.local/share/spark-models/laguna-s-2-1-nvfp4.ready`,
     servedNames: ["qwen3-14b", "laguna-s-2-1-nvfp4"],
     precision: "NVFP4",
     parameters: "117.6B total · 8.5B active",
@@ -440,6 +459,8 @@ const DGX_MODEL_CATALOG = [
     extraVllmArgs: "--trust-remote-code --enable-auto-tool-choice --tool-call-parser poolside_v1 --reasoning-parser poolside_v1 --override-generation-config '{\"temperature\":0.7,\"top_p\":0.95}'",
   },
 ];
+
+const DGX_MODEL_CATALOG = await loadModelCatalog(BUILTIN_DGX_MODEL_CATALOG);
 
 const DEFAULT_LATENCY_THRESHOLDS = {
   ttft: { good: 0.5, watch: 2 },
@@ -522,6 +543,32 @@ async function ssh(host, script, timeout = 20000) {
     timeout,
     maxBuffer: 1024 * 1024 * 12,
   });
+}
+
+async function runOnCompute(script, timeout = 20000) {
+  if (CONFIG.compute.connection === "local") {
+    return execCommand("bash", ["-lc", script], { timeout, maxBuffer: 1024 * 1024 * 12 });
+  }
+  return ssh(DGX_HOST, script, timeout);
+}
+
+function assertWriteAccess(req) {
+  if (CONFIG.dashboard.mode === "readonly") {
+    const error = new Error("This dashboard profile is read-only.");
+    error.status = 403;
+    throw error;
+  }
+  const expected = CONFIG.security.controlToken;
+  if (!expected) return;
+  const authorization = req.headers.authorization || "";
+  const supplied = authorization.startsWith("Bearer ")
+    ? authorization.slice(7)
+    : req.headers["x-dashboard-token"];
+  if (supplied !== expected) {
+    const error = new Error("A valid dashboard control token is required.");
+    error.status = 401;
+    throw error;
+  }
 }
 
 function safeJsonParse(raw, fallback) {
@@ -782,6 +829,7 @@ async function runSyntheticCompletionProbe() {
 }
 
 function maybeRunSyntheticCompletionProbe() {
+  if (!CONFIG.capabilities.benchmarks) return;
   const lastRun = lastSyntheticProbe?.collectedAt ? new Date(lastSyntheticProbe.collectedAt).getTime() : 0;
   if (!syntheticProbeInFlight && Date.now() - lastRun >= SYNTHETIC_PROBE_INTERVAL_MS) {
     runSyntheticCompletionProbe().catch((error) => console.error("Synthetic completion probe failed", error));
@@ -861,15 +909,16 @@ async function collectLiveVllmMetrics() {
 }
 
 async function collectLiveGpuMetrics() {
+  if (!CONFIG.capabilities.nvidiaTelemetry) return [];
   const command = "nvidia-smi --query-gpu=name,driver_version,utilization.gpu,power.draw,clocks.current.graphics,temperature.gpu,memory.used,memory.total --format=csv,noheader,nounits 2>/dev/null || true";
-  // Pass the query directly to SSH. Wrapping a one-line command in `bash -lc`
-  // causes OpenSSH's argument joining to split the nvidia-smi options.
-  const result = await execCommand("ssh", [
-    "-o", "BatchMode=yes",
-    "-o", "ConnectTimeout=6",
-    DGX_HOST,
-    command,
-  ], { timeout: 4000, maxBuffer: 1024 * 1024 });
+  const result = CONFIG.compute.connection === "local"
+    ? await execCommand("bash", ["-lc", command], { timeout: 4000, maxBuffer: 1024 * 1024 })
+    : await execCommand("ssh", [
+      "-o", "BatchMode=yes",
+      "-o", "ConnectTimeout=6",
+      DGX_HOST,
+      command,
+    ], { timeout: 4000, maxBuffer: 1024 * 1024 });
   if (!result.ok) return [];
   return result.stdout.trim().split("\n").filter(Boolean).map(csvLineToGpu);
 }
@@ -967,33 +1016,34 @@ function createVllmLaunchScript(model) {
   if (model.runtime === "docker") return createDockerVllmLaunchScript(model);
   const quantization = model.quantization ? ` --quantization ${model.quantization}` : "";
   const speculativeConfig = model.speculativeConfig ? ` --speculative-config '${model.speculativeConfig}'` : "";
-  const runtime = model.legacyRuntime ? "/home/c3po/venvs/hf/bin/vllm" : "/home/c3po/venvs/vllm-0.26.0/bin/vllm";
+  const runtime = model.legacyRuntime ? CONTROLLER_PATHS.legacyRuntime : CONTROLLER_PATHS.nativeRuntime;
   const contextAndCache = model.launchArgs || (model.legacyRuntime
     ? "--max-model-len 32768 --gpu-memory-utilization 0.65"
     : "--max-model-len 131072 --kv-cache-memory-bytes 8G");
-  const chatTemplate = model.chatTemplate === false ? "" : " --chat-template /home/c3po/qwen36-nothink.jinja";
+  const chatTemplate = model.chatTemplate === false ? "" : ` --chat-template ${CONTROLLER_PATHS.chatTemplate}`;
   const toolCalling = model.enableToolChoice === false ? "" : " --enable-auto-tool-choice --tool-call-parser qwen3_xml";
-  const extraVllmArgs = model.extraVllmArgs ? ` ${model.extraVllmArgs}` : "";
+  const extraVllmArgs = model.extraVllmArgs ? ` ${computePath(model.extraVllmArgs)}` : "";
+  const ffmpeg = CONTROLLER_PATHS.ffmpegLibraries;
 
   return `#!/usr/bin/env bash
 set -euo pipefail
 export CUTE_DSL_ARCH=sm_121a
 export MAX_JOBS=4
 export FLASHINFER_NVCC_THREADS=1
-export LD_LIBRARY_PATH=/home/c3po/opt/ffmpeg/usr/lib/aarch64-linux-gnu:/home/c3po/opt/ffmpeg/usr/lib/aarch64-linux-gnu/blas:/home/c3po/opt/ffmpeg/usr/lib/aarch64-linux-gnu/lapack${"${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"}
-source ${model.legacyRuntime ? "/home/c3po/venvs/hf/bin/activate" : "/home/c3po/venvs/vllm-0.26.0/bin/activate"}
-mkdir -p /home/c3po/vllm-media
-chmod 750 /home/c3po/vllm-media
+export LD_LIBRARY_PATH=${ffmpeg}:${ffmpeg}/blas:${ffmpeg}/lapack${"${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"}
+source ${model.legacyRuntime ? CONTROLLER_PATHS.legacyActivate : CONTROLLER_PATHS.nativeActivate}
+mkdir -p ${CONTROLLER_PATHS.media}
+chmod 750 ${CONTROLLER_PATHS.media}
 VLLM_AUTH_ARGS=()
-if [ -s /home/c3po/.config/vllm/api-key ]; then
-  VLLM_AUTH_ARGS=(--api-key "$(cat /home/c3po/.config/vllm/api-key)")
+if [ -s ${CONTROLLER_PATHS.apiKey} ]; then
+  VLLM_AUTH_ARGS=(--api-key "$(cat ${CONTROLLER_PATHS.apiKey})")
 fi
-MODEL_PATH=$(find /home/c3po/.cache/huggingface/hub/${model.cacheDirectory}/snapshots -mindepth 1 -maxdepth 1 -type d | sort | tail -n 1)
+MODEL_PATH=$(find ${CONTROLLER_PATHS.cache}/${model.cacheDirectory}/snapshots -mindepth 1 -maxdepth 1 -type d | sort | tail -n 1)
 if [ -z "$MODEL_PATH" ]; then
   echo "Model snapshot is not available for ${model.repository}" >&2
   exit 1
 fi
-exec ${runtime} serve "$MODEL_PATH" --served-model-name ${model.servedNames.join(" ")} --host 0.0.0.0 --port 8000 "${"${VLLM_AUTH_ARGS[@]}"}" ${contextAndCache}${quantization}${chatTemplate}${toolCalling}${speculativeConfig}${extraVllmArgs}
+exec ${runtime} serve "$MODEL_PATH" --served-model-name ${model.servedNames.join(" ")} --host 0.0.0.0 --port ${MODEL_CONTROLLER_PORT} "${"${VLLM_AUTH_ARGS[@]}"}" ${contextAndCache}${quantization}${chatTemplate}${toolCalling}${speculativeConfig}${extraVllmArgs}
 `;
 }
 
@@ -1004,19 +1054,19 @@ function createDockerVllmLaunchScript(model) {
   const maxBatchedTokens = model.maxBatchedTokens ? ` --max-num-batched-tokens ${model.maxBatchedTokens}` : "";
   return `#!/usr/bin/env bash
 set -euo pipefail
-mkdir -p /home/c3po/vllm-media
-chmod 750 /home/c3po/vllm-media
+mkdir -p ${CONTROLLER_PATHS.media}
+chmod 750 ${CONTROLLER_PATHS.media}
 VLLM_AUTH_ARGS=()
-if [ -s /home/c3po/.config/vllm/api-key ]; then
-  VLLM_AUTH_ARGS=(--api-key "$(cat /home/c3po/.config/vllm/api-key)")
+if [ -s ${CONTROLLER_PATHS.apiKey} ]; then
+  VLLM_AUTH_ARGS=(--api-key "$(cat ${CONTROLLER_PATHS.apiKey})")
 fi
-docker rm -f spark-vllm-primary >/dev/null 2>&1 || true
-exec docker run --rm --name spark-vllm-primary --gpus all --network host --ipc=host \\
-  -v /home/c3po/.cache/huggingface:/root/.cache/huggingface \\
-  -v /home/c3po/vllm-media:/media:ro \\
+docker rm -f ${MODEL_CONTAINER_NAME} >/dev/null 2>&1 || true
+exec docker run --rm --name ${MODEL_CONTAINER_NAME} --gpus all --network host --ipc=host \\
+  -v ${CONTROLLER_HOME}/.cache/huggingface:/root/.cache/huggingface \\
+  -v ${CONTROLLER_PATHS.media}:/media:ro \\
   ${model.dockerImage} ${model.repository} \\
   --served-model-name ${model.servedNames.join(" ")} \\
-  --host 0.0.0.0 --port 8000 \\
+  --host 0.0.0.0 --port ${MODEL_CONTROLLER_PORT} \\
   --max-model-len ${maxModelLen} --kv-cache-memory-bytes 8G${maxBatchedTokens}${maxNumSeqs} \\
   --allowed-local-media-path /media${modelArgs} \\
   "${"${VLLM_AUTH_ARGS[@]}"}"
@@ -1102,9 +1152,13 @@ function estimateModelLoadProgress(telemetry, endpointReady) {
 }
 
 async function collectDgxModelControl() {
-  const modelInstallTargets = DGX_MODEL_CATALOG.map(({ key, cacheDirectory, readyMarker }) => ({ key, cacheDirectory, readyMarker }));
+  const modelInstallTargets = DGX_MODEL_CATALOG.map(({ key, cacheDirectory, readyMarker }) => ({
+    key,
+    cacheDirectory,
+    readyMarker: readyMarker ? computePath(readyMarker) : null,
+  }));
   const remote = String.raw`
-export PATH="/home/c3po/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+export PATH="${CONTROLLER_HOME}/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 echo __PM2__
 pm2 jlist 2>/dev/null || echo '[]'
 echo __INSTALLED__
@@ -1112,7 +1166,7 @@ python3 - <<'PY'
 import json
 from pathlib import Path
 targets = ${JSON.stringify(modelInstallTargets)}
-root = Path('/home/c3po/.cache/huggingface/hub')
+root = Path('${CONTROLLER_PATHS.cache}')
 print(json.dumps({target['key']: (
     any((root / target['cacheDirectory'] / 'snapshots').glob('*'))
     and (not target.get('readyMarker') or Path(target['readyMarker']).is_file())
@@ -1121,16 +1175,16 @@ PY
 echo __VLLM__
 VLLM_PROBE_HOST="$(tailscale ip -4 2>/dev/null | head -n 1 || true)"
 if [ -n "$VLLM_PROBE_HOST" ]; then
-  export VLLM_PROBE_BASE="http://$VLLM_PROBE_HOST:8000"
+  export VLLM_PROBE_BASE="http://$VLLM_PROBE_HOST:${MODEL_CONTROLLER_PORT}"
 else
-  export VLLM_PROBE_BASE="http://127.0.0.1:8000"
+  export VLLM_PROBE_BASE="http://127.0.0.1:${MODEL_CONTROLLER_PORT}"
 fi
 python3 - <<'PY' 2>/dev/null || true
 import os
 import urllib.request
 from pathlib import Path
 try:
-    key_path = Path('/home/c3po/.config/vllm/api-key')
+    key_path = Path('${CONTROLLER_PATHS.apiKey}')
     headers = {'Authorization': 'Bearer ' + key_path.read_text().strip()} if key_path.is_file() else {}
     request = urllib.request.Request(os.environ['VLLM_PROBE_BASE'] + '/v1/models', headers=headers)
     with urllib.request.urlopen(request, timeout=3) as response:
@@ -1151,8 +1205,8 @@ total = values.get('MemTotal', 0)
 available = values.get('MemAvailable', 0)
 logs = {}
 for path in (
-    Path('/home/c3po/.pm2/logs/spark-qwen-out.log'),
-    Path('/home/c3po/.pm2/logs/spark-qwen-error.log'),
+    Path('${MODEL_OUT_LOG}'),
+    Path('${MODEL_ERROR_LOG}'),
 ):
     if path.is_file():
         with path.open('rb') as handle:
@@ -1165,9 +1219,9 @@ print(json.dumps({
 }))
 PY
 echo __SCRIPT__
-cat /home/c3po/start-vllm.sh 2>/dev/null || true
+cat ${MODEL_LAUNCH_SCRIPT} 2>/dev/null || true
 `;
-  const result = await ssh(DGX_HOST, remote, 16000);
+  const result = await runOnCompute(remote, 16000);
   if (!result.ok) return { ok: false, collectedAt: new Date().toISOString(), error: result.stderr || result.message, models: [] };
 
   const [, afterPm2 = ""] = result.stdout.split("__PM2__\n");
@@ -1176,7 +1230,7 @@ cat /home/c3po/start-vllm.sh 2>/dev/null || true
   const [vllmRaw = "", afterLoad = ""] = afterVllm.split("__LOAD__\n");
   const [loadRaw = "", scriptRaw = ""] = afterLoad.split("__SCRIPT__\n");
   const pm2List = safeJsonParse(pm2Raw.trim(), []);
-  const process = Array.isArray(pm2List) ? pm2List.find((item) => item.name === "spark-qwen") : null;
+  const process = Array.isArray(pm2List) ? pm2List.find((item) => item.name === MODEL_SERVICE_NAME) : null;
   const installed = safeJsonParse(installedRaw.trim(), {});
   const vllmPayload = safeJsonParse(vllmRaw.trim(), { data: [] });
   const servedModels = Array.isArray(vllmPayload?.data) ? vllmPayload.data : [];
@@ -1296,31 +1350,31 @@ async function runDgxModelControl(input) {
   // it can replace the primary service.
   const readinessCheck = [
     "failure_reason='Candidate did not expose the expected model endpoint.'",
-    "auth_header=(); if [ -s /home/c3po/.config/vllm/api-key ]; then auth_header=(-H \"Authorization: Bearer $(cat /home/c3po/.config/vllm/api-key)\"); fi",
-    "initial_restarts=$(pm2 jlist | python3 -c 'import json, sys; processes = json.load(sys.stdin); print(next((item.get(\"pm2_env\", {}).get(\"restart_time\", 0) for item in processes if item.get(\"name\") == \"spark-qwen\"), 0))')",
+    `auth_header=(); if [ -s ${CONTROLLER_PATHS.apiKey} ]; then auth_header=(-H \"Authorization: Bearer $(cat ${CONTROLLER_PATHS.apiKey})\"); fi`,
+    `initial_restarts=$(pm2 jlist | python3 -c 'import json, sys; processes = json.load(sys.stdin); print(next((item.get(\"pm2_env\", {}).get(\"restart_time\", 0) for item in processes if item.get(\"name\") == \"${MODEL_SERVICE_NAME}\"), 0))')`,
     `expected_model=${JSON.stringify(expectedModelName)}`,
     `for attempt in $(seq 1 ${startupAttempts}); do`,
-    "  models=$(curl -fsS --max-time 4 \"${auth_header[@]}\" http://127.0.0.1:8000/v1/models 2>/dev/null || true)",
+    `  models=$(curl -fsS --max-time 4 "${"${auth_header[@]}"}" http://127.0.0.1:${MODEL_CONTROLLER_PORT}/v1/models 2>/dev/null || true)`,
     "  if printf '%s' \"$models\" | grep -Fq \"\\\"id\\\":\\\"$expected_model\\\"\"; then ready=1; failure_reason=''; break; fi",
-    "  current_restarts=$(pm2 jlist | python3 -c 'import json, sys; processes = json.load(sys.stdin); print(next((item.get(\"pm2_env\", {}).get(\"restart_time\", 0) for item in processes if item.get(\"name\") == \"spark-qwen\"), 0))')",
+    `  current_restarts=$(pm2 jlist | python3 -c 'import json, sys; processes = json.load(sys.stdin); print(next((item.get(\"pm2_env\", {}).get(\"restart_time\", 0) for item in processes if item.get(\"name\") == \"${MODEL_SERVICE_NAME}\"), 0))')`,
     "  if [ \"$current_restarts\" -gt \"$initial_restarts\" ]; then failure_reason='Candidate vLLM process exited during startup.'; break; fi",
     "  sleep 5",
     "done",
     "if [ \"${ready:-0}\" -eq 1 ]; then",
-    `  smoke=$(printf '%s' '${encodedSmokePayload}' | base64 -d | curl -fsS --max-time 90 "${"${auth_header[@]}"}" http://127.0.0.1:8000/v1/chat/completions -H 'Content-Type: application/json' --data-binary @- || true)`,
+    `  smoke=$(printf '%s' '${encodedSmokePayload}' | base64 -d | curl -fsS --max-time 90 "${"${auth_header[@]}"}" http://127.0.0.1:${MODEL_CONTROLLER_PORT}/v1/chat/completions -H 'Content-Type: application/json' --data-binary @- || true)`,
     `  ${smokeValidation} || { ready=0; failure_reason='Candidate endpoint started but failed the ${probeLabel} readiness probe.'; }`,
     "fi",
   ].join("\n");
   // PM2 can automatically restart a failed candidate while rollback is trying
   // to restore the prior launch script. Stop the process and remove only its
   // named container on both sides of a replacement to avoid that race.
-  const stopPrimary = "pm2 stop spark-qwen || true; docker rm -f spark-vllm-primary >/dev/null 2>&1 || true";
+  const stopPrimary = `pm2 stop ${MODEL_SERVICE_NAME} || true; docker rm -f ${MODEL_CONTAINER_NAME} >/dev/null 2>&1 || true`;
   const command = action === "stop"
-    ? "pm2 stop spark-qwen || true; pm2 save"
+    ? `pm2 stop ${MODEL_SERVICE_NAME} || true; pm2 save`
     : action === "activate"
-      ? `cp /home/c3po/start-vllm.sh /home/c3po/start-vllm.sh.last-known-good; ${stopPrimary}; printf '\n%s\n' '${loadMarker}' >> /home/c3po/.pm2/logs/spark-qwen-out.log; printf '\n%s\n' '${loadMarker}' >> /home/c3po/.pm2/logs/spark-qwen-error.log; printf '%s' '${encodedScript}' | base64 -d > /home/c3po/start-vllm.sh; chmod 700 /home/c3po/start-vllm.sh; pm2 start spark-qwen --update-env; ready=0; ${readinessCheck}; if [ "$ready" -ne 1 ]; then ${stopPrimary}; cp /home/c3po/start-vllm.sh.last-known-good /home/c3po/start-vllm.sh; chmod 700 /home/c3po/start-vllm.sh; pm2 start spark-qwen --update-env; pm2 save; echo "$failure_reason The prior primary launch script was restored." >&2; exit 1; fi; pm2 save`
-      : `pm2 ${action} spark-qwen --update-env; pm2 save`;
-  const remote = `export PATH="/home/c3po/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"; set -e; ${command}; pm2 jlist`;
+      ? `cp ${MODEL_LAUNCH_SCRIPT} ${MODEL_BACKUP_SCRIPT}; ${stopPrimary}; printf '\n%s\n' '${loadMarker}' >> ${MODEL_OUT_LOG}; printf '\n%s\n' '${loadMarker}' >> ${MODEL_ERROR_LOG}; printf '%s' '${encodedScript}' | base64 -d > ${MODEL_LAUNCH_SCRIPT}; chmod 700 ${MODEL_LAUNCH_SCRIPT}; pm2 start ${MODEL_SERVICE_NAME} --update-env; ready=0; ${readinessCheck}; if [ "$ready" -ne 1 ]; then ${stopPrimary}; cp ${MODEL_BACKUP_SCRIPT} ${MODEL_LAUNCH_SCRIPT}; chmod 700 ${MODEL_LAUNCH_SCRIPT}; pm2 start ${MODEL_SERVICE_NAME} --update-env; pm2 save; echo "$failure_reason The prior primary launch script was restored." >&2; exit 1; fi; pm2 save`
+      : `pm2 ${action} ${MODEL_SERVICE_NAME} --update-env; pm2 save`;
+  const remote = `export PATH="${CONTROLLER_HOME}/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"; set -e; ${command}; pm2 jlist`;
   const label = action === "activate" ? `Switched to ${model.label} (${model.provider})` : `${action[0].toUpperCase()}${action.slice(1)} requested`;
   const controlTimeout = action === "activate" ? (startupTimeoutSeconds + 120) * 1000 : 30000;
 
@@ -1340,7 +1394,7 @@ async function runDgxModelControl(input) {
     };
   }
 
-  modelControlInFlight = ssh(DGX_HOST, remote, controlTimeout).then(async (result) => {
+  modelControlInFlight = runOnCompute(remote, controlTimeout).then(async (result) => {
     if (!result.ok) throw new Error(result.stderr || result.message || "The model service action failed.");
     if (action !== "stop") await runAgentGatewayCompatibilityProbe();
     lastModelControlAction = { ok: true, label, action, modelKey: model?.key || currentState.activeModelKey, at: new Date().toISOString() };
@@ -1798,7 +1852,7 @@ async function loadLatencyHistory() {
 }
 
 async function saveLatencyHistory() {
-  await mkdir(join(ROOT, ".data"), { recursive: true });
+  await mkdir(DATA_DIR, { recursive: true });
   await writeFile(LATENCY_HISTORY_PATH, JSON.stringify(latencyHistory.slice(-LATENCY_HISTORY_LIMIT), null, 2));
 }
 
@@ -1816,7 +1870,73 @@ function csvLineToGpu(line) {
   };
 }
 
+function localCpuTimes() {
+  const totals = os.cpus().reduce((result, cpu) => {
+    for (const [key, value] of Object.entries(cpu.times)) result[key] = (result[key] || 0) + value / 1000;
+    return result;
+  }, {});
+  return { ...totals, total: Object.values(totals).reduce((sum, value) => sum + value, 0) };
+}
+
+async function collectLocalCompute() {
+  const [gpu, dockerResult, processResult, modelResult, metricsResult] = await Promise.all([
+    collectLiveGpuMetrics(),
+    execCommand("bash", ["-lc", "command -v docker >/dev/null 2>&1 && docker ps --format '{{json .}}' || true"], { timeout: 5000 }),
+    execCommand("bash", ["-lc", "ps -eo pid,ppid,%cpu,%mem,rss,comm,args | grep -Ei 'vllm|ollama|open-webui|llama|triton|text-generation|VLLM' | grep -Ev 'grep|awk|bash -lc' | head -40 || true"], { timeout: 5000 }),
+    fetch(`${VLLM_API_URL}/models`, { headers: vllmHeaders(), signal: AbortSignal.timeout(5000) }).then(async (response) => ({ response, payload: await response.json().catch(() => null) })).catch((error) => ({ error })),
+    VLLM_METRICS_URL
+      ? fetch(VLLM_METRICS_URL, { signal: AbortSignal.timeout(5000) }).then(async (response) => ({ response, raw: await response.text() })).catch((error) => ({ error }))
+      : Promise.resolve({ error: new Error("No metrics URL configured") }),
+  ]);
+  const vllmModels = Array.isArray(modelResult.payload?.data)
+    ? modelResult.payload.data.map((model) => ({
+      id: model.id,
+      maxModelLen: model.max_model_len,
+      ownedBy: model.owned_by,
+      root: model.root,
+    }))
+    : [];
+  const loadedVllmModel = identifyServedModel(vllmModels).id
+    ? vllmModels.find((model) => model.id === identifyServedModel(vllmModels).id)
+    : null;
+  const huggingFace = loadedVllmModel ? await fetchHuggingFaceModelDetails(loadedVllmModel) : null;
+  const totalMemory = os.totalmem();
+  const availableMemory = os.freemem();
+
+  return {
+    ok: true,
+    host: "local",
+    collectedAt: new Date().toISOString(),
+    summary: {
+      hostname: os.hostname(),
+      user: os.userInfo().username,
+      time: Date.now() / 1000,
+      uptimeSeconds: os.uptime(),
+      loadavg: os.loadavg().join(" "),
+      uname: { system: os.type(), release: os.release(), machine: os.machine() },
+      os: { NAME: os.type(), PRETTY_NAME: `${os.type()} ${os.release()}` },
+      meminfo: { MemTotal: totalMemory, MemAvailable: availableMemory },
+      cpuTimes: localCpuTimes(),
+      networkBytes: {},
+      diskBytes: {},
+    },
+    gpu,
+    docker: dockerResult.stdout.trim().split("\n").filter(Boolean).map((line) => safeJsonParse(line, { raw: line })),
+    processes: parsePs(processResult.stdout),
+    vllm: {
+      ok: Boolean(modelResult.response?.ok && vllmModels.length),
+      loadedModel: loadedVllmModel,
+      models: vllmModels,
+      huggingFace,
+      metrics: metricsResult.response?.ok ? buildVllmMetrics(metricsResult.raw) : { available: false },
+      error: modelResult.error?.message || (!modelResult.response?.ok ? `Model endpoint returned ${modelResult.response?.status || "no response"}` : null),
+    },
+    latestSparkDoctor: { path: "", data: null },
+  };
+}
+
 async function collectDgx() {
+  if (CONFIG.compute.connection === "local") return collectLocalCompute();
   const remote = String.raw`
 set -e
 python3 - <<'PY'
@@ -1904,16 +2024,16 @@ fi
 echo __VLLM_MODELS__
 VLLM_PROBE_HOST="$(tailscale ip -4 2>/dev/null | head -n 1 || true)"
 if [ -n "$VLLM_PROBE_HOST" ]; then
-  export VLLM_PROBE_BASE="http://$VLLM_PROBE_HOST:8000"
+  export VLLM_PROBE_BASE="http://$VLLM_PROBE_HOST:${MODEL_CONTROLLER_PORT}"
 else
-  export VLLM_PROBE_BASE="http://127.0.0.1:8000"
+  export VLLM_PROBE_BASE="http://127.0.0.1:${MODEL_CONTROLLER_PORT}"
 fi
 python3 - <<'PY' 2>/dev/null || true
 import os
 import pathlib
 import urllib.request
 try:
-    key_path = pathlib.Path('/home/c3po/.config/vllm/api-key')
+    key_path = pathlib.Path('${CONTROLLER_PATHS.apiKey}')
     headers = {'Authorization': 'Bearer ' + key_path.read_text().strip()} if key_path.is_file() else {}
     request = urllib.request.Request(os.environ['VLLM_PROBE_BASE'] + '/v1/models', headers=headers)
     with urllib.request.urlopen(request, timeout=3) as response:
@@ -1933,7 +2053,7 @@ except Exception:
 PY
 `;
 
-  const res = await ssh(DGX_HOST, remote, 20000);
+  const res = await runOnCompute(remote, 20000);
   if (!res.ok) {
     return { ok: false, host: DGX_HOST, error: res.stderr || res.message, collectedAt: new Date().toISOString() };
   }
@@ -2005,7 +2125,10 @@ function parsePs(raw) {
 }
 
 async function collectPm2() {
-  if (MAC_MINI_HOST === "local" || MAC_MINI_HOST === "self") {
+  if (!CONFIG.capabilities.pm2) {
+    return { ok: true, enabled: false, host: null, collectedAt: new Date().toISOString(), processes: [] };
+  }
+  if (CONFIG.services.pm2.connection === "local" || MAC_MINI_HOST === "local" || MAC_MINI_HOST === "self") {
     const local = await execCommand("bash", ["-lc", "export PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; command -v pm2 >/dev/null 2>&1 || { echo __NO_PM2__; exit 0; }; pm2 jlist"], { timeout: 12000 });
     if (!local.ok) {
       return {
@@ -2044,7 +2167,10 @@ pm2 jlist
 }
 
 async function collectGateway() {
-  const endpoint = "http://127.0.0.1:4010/v1/models";
+  if (!CONFIG.capabilities.gateway) {
+    return { ok: true, enabled: false, endpoint: null, models: [], collectedAt: new Date().toISOString() };
+  }
+  const endpoint = `${AGENT_GATEWAY_API_URL}/models`;
   const startedAt = Date.now();
   try {
     const response = await fetch(endpoint, { signal: AbortSignal.timeout(5000) });
@@ -2208,7 +2334,7 @@ function bytesToGb(bytes) {
 async function collectAll() {
   const [dgx, pm2, gateway] = await Promise.all([collectDgx(), collectPm2(), collectGateway()]);
   const liveVllm = await collectLiveVllmMetrics();
-  lastSnapshot = { collectedAt: new Date().toISOString(), dgx, pm2, gateway, liveVllm };
+  lastSnapshot = { collectedAt: new Date().toISOString(), config: publicConfig(CONFIG), dgx, pm2, gateway, liveVllm };
   const point = historyPoint(lastSnapshot);
   history = [...history, point].slice(-HISTORY_LIMIT);
   try {
@@ -2220,6 +2346,9 @@ async function collectAll() {
 }
 
 async function runSparkDoctor() {
+  if (!CONFIG.capabilities.sparkDoctor) {
+    return { ok: false, disabled: true, error: "Spark Doctor is disabled for this dashboard profile." };
+  }
   if (runInFlight) return runInFlight;
   const remote = String.raw`
 set -e
@@ -2250,7 +2379,7 @@ PY
 exit 0
 `;
 
-  runInFlight = ssh(DGX_HOST, remote, 120000).then((res) => {
+  runInFlight = runOnCompute(remote, 120000).then((res) => {
     if (!res.ok) {
       lastSparkDoctorRun = { ok: false, collectedAt: new Date().toISOString(), error: res.stderr || res.message };
       return lastSparkDoctorRun;
@@ -2303,6 +2432,9 @@ async function serveStatic(req, res) {
 createServer(async (req, res) => {
   try {
     const url = new URL(req.url, "http://localhost");
+    if (url.pathname === "/api/config") {
+      return sendJson(res, 200, publicConfig(CONFIG));
+    }
     if (url.pathname === "/api/status") {
       const refresh = url.searchParams.get("refresh") === "1";
       const data = refresh || !lastSnapshot ? await collectAll() : lastSnapshot;
@@ -2320,8 +2452,17 @@ createServer(async (req, res) => {
       return sendJson(res, 200, await collectLiveVllmMetrics());
     }
     if (url.pathname === "/api/models/control") {
-      if (req.method === "GET") return sendJson(res, 200, await collectDgxModelControl());
-      if (req.method === "POST") return sendJson(res, 200, await runDgxModelControl(await readJsonBody(req)));
+      if (req.method === "GET") {
+        if (!CONFIG.capabilities.modelControl) {
+          return sendJson(res, 200, { ok: false, disabled: true, error: "Model control is disabled for this dashboard profile.", models: [] });
+        }
+        return sendJson(res, 200, await collectDgxModelControl());
+      }
+      if (req.method === "POST") {
+        assertWriteAccess(req);
+        if (!CONFIG.capabilities.modelControl) return sendJson(res, 403, { error: "Model control is disabled." });
+        return sendJson(res, 200, await runDgxModelControl(await readJsonBody(req)));
+      }
       return sendJson(res, 405, { error: "Method not allowed." });
     }
     if (url.pathname === "/api/latency/models") {
@@ -2331,6 +2472,8 @@ createServer(async (req, res) => {
       return sendJson(res, 200, { limit: LATENCY_HISTORY_LIMIT, runs: latencyHistory.slice().reverse() });
     }
     if (url.pathname === "/api/latency/stop" && req.method === "POST") {
+      assertWriteAccess(req);
+      if (!CONFIG.capabilities.benchmarks) return sendJson(res, 403, { error: "Benchmarks are disabled." });
       const { benchmarkId } = await readJsonBody(req);
       const active = activeLatencyBenchmarks.get(benchmarkId);
       if (!active) return sendJson(res, 404, { error: "That benchmark is no longer active." });
@@ -2338,11 +2481,15 @@ createServer(async (req, res) => {
       return sendJson(res, 200, { ok: true, stopped: [benchmarkId] });
     }
     if (url.pathname === "/api/latency/kill-all" && req.method === "POST") {
+      assertWriteAccess(req);
+      if (!CONFIG.capabilities.benchmarks) return sendJson(res, 403, { error: "Benchmarks are disabled." });
       const stopped = [...activeLatencyBenchmarks.keys()];
       activeLatencyBenchmarks.forEach((active) => active.controller.abort());
       return sendJson(res, 200, { ok: true, stopped });
     }
     if (url.pathname === "/api/latency/run" && req.method === "POST") {
+      assertWriteAccess(req);
+      if (!CONFIG.capabilities.benchmarks) return sendJson(res, 403, { error: "Benchmarks are disabled." });
       const discovered = await fetchVllmModels();
       if (!discovered.ok) return sendJson(res, 503, { error: discovered.error || "vLLM model discovery failed." });
       const body = await readJsonBody(req);
@@ -2355,6 +2502,7 @@ createServer(async (req, res) => {
       return runLatencyBenchmark(config, res);
     }
     if (url.pathname === "/api/spark-doctor/run" && req.method === "POST") {
+      assertWriteAccess(req);
       const result = await runSparkDoctor();
       await collectAll();
       return sendJson(res, 200, result);
@@ -2367,11 +2515,11 @@ createServer(async (req, res) => {
     }
     return serveStatic(req, res);
   } catch (error) {
-    return sendJson(res, 500, { error: error.message, stack: error.stack });
+    return sendJson(res, error.status || 500, { error: error.message, stack: error.status ? undefined : error.stack });
   }
 }).listen(PORT, HOST, () => {
-  console.log(`Spark Health API listening on http://${HOST}:${PORT}`);
-  console.log(`DGX_HOST=${DGX_HOST} MAC_MINI_HOST=${MAC_MINI_HOST}`);
+  console.log(`${CONFIG.dashboard.title} listening on http://${HOST}:${PORT}`);
+  console.log(`Profile=${CONFIG.profile} mode=${CONFIG.dashboard.mode} compute=${CONFIG.compute.connection}:${DGX_HOST}`);
 });
 
 setTimeout(maybeRunSyntheticCompletionProbe, 15000).unref();

@@ -4,6 +4,10 @@ dist/
 .env
 .env.*
 !.env.example
+config/dashboard.local.json
+config/models.local.json
+config/*.generated.json
+public/local-brand.*
 *.log
 .DS_Store
 coverage/

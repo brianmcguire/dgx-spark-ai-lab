@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "profile": "local-benchmark",
+  "dashboard": {
+    "title": "Local Model Benchmark Lab",
+    "brand": "Model Lab",
+    "subtitle": "Local inference telemetry and repeatable model benchmarks.",
+    "host": "127.0.0.1",
+    "port": 4174,
+    "mode": "benchmark"
+  },
+  "compute": {
+    "label": "Local compute",
+    "connection": "local",
+    "host": "local",
+    "platform": "auto",
+    "nvidiaTelemetry": true
+  },
+  "inference": {
+    "apiUrl": "http://127.0.0.1:8000/v1",
+    "metricsUrl": "http://127.0.0.1:8000/metrics"
+  }
+}
