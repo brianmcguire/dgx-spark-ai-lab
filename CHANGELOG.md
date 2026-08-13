@@ -4,6 +4,11 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## Unreleased
 
+### Fixed
+
+- Saved benchmark history is now inventoried independently of the selected comparison template, with a direct path from an empty suite leaderboard to compatible legacy single-scenario runs.
+- New benchmark records retain their canonical catalog model identity, and remote profiles can resolve the configured vLLM API key after process-manager restarts.
+
 ## 1.2.0 - 2026-08-13
 
 ### Added

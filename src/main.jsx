@@ -22,7 +22,7 @@ import {
   Trash2,
   Zap,
 } from "lucide-react";
-import { initialCodingBenchmarkView } from "./benchmark-history.js";
+import { initialCodingBenchmarkView, latestSingleCodingView, summarizeBenchmarkModels } from "./benchmark-history.js";
 import "./styles.css";
 
 const number = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
@@ -1019,6 +1019,7 @@ function ModelBenchmarkComparison({
   profile = "",
   maxTokens = 0,
   parallel = 1,
+  onShowSingleHistory,
 }) {
   const modelPresentation = useMemo(() => new Map(catalogModels.map((model) => [model.id, model])), [catalogModels]);
   const selectedSuite = suiteId ? suites[suiteId] : null;
@@ -1101,6 +1102,11 @@ function ModelBenchmarkComparison({
 
   const maxTps = models[0]?.averageTps || 0;
   const totalTests = models.reduce((total, item) => total + item.runs, 0);
+  const savedSingleRuns = history.filter((entry) => (
+    (entry.historyCategory || entry.benchmarkType || "coding") === "coding"
+    && !entry.suiteId
+    && Number(entry.summary?.completed || 0) > 0
+  )).length;
 
   return (
     <section className="benchmark-comparison" aria-labelledby="model-throughput-title">
@@ -1132,13 +1138,65 @@ function ModelBenchmarkComparison({
             );
           })}
         </div>
-      ) : <div className="chart-empty">{selectedSuite ? `Complete ${selectedSuite.label} on at least one model to create a fair ranking.` : `Run this exact ${benchmarkType === "visual" ? "visual analysis" : "coding"} configuration to compare models here.`}</div>}
+      ) : (
+        <div className="chart-empty benchmark-comparison-empty">
+          <span>{selectedSuite ? `No complete ${selectedSuite.label} is stored yet.` : `Run this exact ${benchmarkType === "visual" ? "visual analysis" : "coding"} configuration to compare models here.`}</span>
+          {selectedSuite && savedSingleRuns > 0 && onShowSingleHistory && (
+            <button type="button" className="clear-button" onClick={onShowSingleHistory}>Show {savedSingleRuns} saved single-scenario run{savedSingleRuns === 1 ? "" : "s"}</button>
+          )}
+        </div>
+      )}
 
       <p className="benchmark-comparison-note">
         {selectedSuite
           ? `Only complete ${selectedSuite.label} runs are ranked. All ${selectedSuite.cases.length} cases are weighted equally; the two-stream case uses aggregate throughput.`
           : `Filtered to ${profile || "the selected task"}, ${maxTokens} output tokens, and ${parallel} parallel stream${Number(parallel) === 1 ? "" : "s"}.`}
       </p>
+    </section>
+  );
+}
+
+function SavedModelHistory({ history = [], catalogModels = [], benchmarkType = "coding" }) {
+  const models = useMemo(() => summarizeBenchmarkModels(history, benchmarkType), [benchmarkType, history]);
+  const presentation = useMemo(() => {
+    const entries = [];
+    for (const model of catalogModels || []) {
+      entries.push([model.key, model], [model.id, model]);
+    }
+    return new Map(entries);
+  }, [catalogModels]);
+  const totalRecords = models.reduce((total, model) => total + model.records, 0);
+
+  return (
+    <section className="saved-model-history" aria-labelledby="saved-model-history-title">
+      <div className="benchmark-comparison-head">
+        <div>
+          <span className="comparison-kicker">Unfiltered persisted inventory</span>
+          <h3 id="saved-model-history-title">Saved model history</h3>
+        </div>
+        <span>{models.length} model{models.length === 1 ? "" : "s"} · {totalRecords} saved record{totalRecords === 1 ? "" : "s"}</span>
+      </div>
+      {models.length ? (
+        <div className="saved-model-history-grid">
+          {models.map((item) => {
+            const metadata = presentation.get(item.modelKey) || presentation.get(item.model);
+            const displayName = item.modelLabel || metadata?.displayName || item.model;
+            return (
+              <article className="saved-model-history-card" key={item.key}>
+                <div className="saved-model-history-name"><ProviderMark providerLogo={metadata?.providerLogo} /><strong>{displayName}</strong></div>
+                <span>{item.completed} completed · {item.failed} incomplete</span>
+                <dl>
+                  <div><dt>Saved records</dt><dd>{item.records}</dd></div>
+                  <div><dt>Configurations</dt><dd>{item.configurations}</dd></div>
+                  <div><dt>Best generation</dt><dd>{item.bestTps ? formatRate(item.bestTps) : "n/a"}</dd></div>
+                  <div><dt>Latest run</dt><dd>{item.latestAt ? `${formatDate(item.latestAt)} · ${formatTimeLabel(item.latestAt)}` : "n/a"}</dd></div>
+                </dl>
+              </article>
+            );
+          })}
+        </div>
+      ) : <div className="chart-empty">No saved {benchmarkType === "visual" ? "visual analysis" : "coding"} records were found in the configured data directory.</div>}
+      <p>This inventory shows every model present in persisted history. The leaderboard below applies the selected fair-comparison filter.</p>
     </section>
   );
 }
@@ -1350,6 +1408,18 @@ function LatencyLab() {
     setError("");
   }
 
+  function showSavedSingleHistory() {
+    const view = latestSingleCodingView(history);
+    if (!view) return;
+    setBenchmarkPlan(view.benchmarkPlan);
+    setProfile(view.profile);
+    setMaxTokens(view.maxTokens);
+    setParallel(view.parallel);
+    setCompleted(null);
+    setRuns([]);
+    setSuiteProgress(null);
+  }
+
   const summary = completed?.summary;
   const profileOptions = Object.entries(benchmarkType === "visual" ? catalog.visualProfiles || {} : catalog.profiles || {});
   const suiteOptions = Object.entries(catalog.codingSuites || {});
@@ -1481,6 +1551,8 @@ function LatencyLab() {
         </div>
       )}
 
+      <SavedModelHistory history={history} catalogModels={catalog.catalogModels} benchmarkType={benchmarkType} />
+
       <ModelBenchmarkComparison
         history={history}
         catalogModels={catalog.catalogModels}
@@ -1490,6 +1562,7 @@ function LatencyLab() {
         profile={profile}
         maxTokens={maxTokens}
         parallel={parallel}
+        onShowSingleHistory={showSavedSingleHistory}
       />
 
       <div className="benchmark-history">
