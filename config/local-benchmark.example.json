@@ -4,6 +4,8 @@
   "dashboard": {
     "title": "Local Model Benchmark Lab",
     "brand": "Model Lab",
+    "logoUrl": "/dgx-spark-icon.png",
+    "logoAlt": "Model Lab profile",
     "subtitle": "Local inference telemetry and repeatable model benchmarks.",
     "host": "127.0.0.1",
     "port": 4174,

@@ -4,6 +4,8 @@
   "dashboard": {
     "title": "DGX Spark AI Lab",
     "brand": "Spark Control",
+    "logoUrl": "/dgx-spark-icon.png",
+    "logoAlt": "DGX Spark profile",
     "subtitle": "DGX Spark health, model control, benchmarks, and supporting services.",
     "host": "0.0.0.0",
     "port": 4174,

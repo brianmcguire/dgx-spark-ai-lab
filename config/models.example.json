@@ -1,5 +1,10 @@
 {
   "mode": "merge",
+  "discovery": {
+    "enabled": true,
+    "includeUnknown": true
+  },
+  "initialPrimary": null,
   "models": [
     {
       "key": "my-model-nvfp4",

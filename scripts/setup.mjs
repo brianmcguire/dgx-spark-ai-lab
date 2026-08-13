@@ -6,6 +6,7 @@ import { stdin, stdout } from "node:process";
 
 const root = resolve(import.meta.dirname, "..");
 const destination = resolve(root, "config/dashboard.local.json");
+const modelCatalogDestination = resolve(root, "config/models.local.json");
 const rl = createInterface({ input: stdin, output: stdout });
 
 async function ask(question, fallback = "") {
@@ -38,6 +39,15 @@ async function main() {
     template.services.gateway.enabled = (await ask("Monitor a local LiteLLM gateway? (yes/no)", "no")).toLowerCase().startsWith("y");
     template.security.controlToken = randomBytes(24).toString("base64url");
     await writeFile(destination, `${JSON.stringify(template, null, 2)}\n`, { mode: 0o600 });
+    const discoverModels = (await ask("Show downloaded Hugging Face checkpoints that still need setup? (yes/no)", "yes")).toLowerCase().startsWith("y");
+    if (discoverModels) {
+      await writeFile(modelCatalogDestination, `${JSON.stringify({
+        mode: "merge",
+        discovery: { enabled: true, includeUnknown: true },
+        initialPrimary: null,
+        models: [],
+      }, null, 2)}\n`, { mode: 0o600 });
+    }
   } else {
     throw new Error("Profile selection must be 1, 2, or 3.");
   }
@@ -45,6 +55,7 @@ async function main() {
   stdout.write(`\nCreated ${destination}\n`);
   if (choice === "3") {
     stdout.write("A private dashboard control token was generated in that ignored configuration file.\n");
+    stdout.write("The dashboard will adopt the model already served by vLLM as the initial primary. It will never activate a discovered checkpoint automatically.\n");
   }
   stdout.write("Run: npm run doctor\nThen: npm run dev\n");
 }

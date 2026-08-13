@@ -1,12 +1,16 @@
 import { createServer } from "node:http";
 import { execFile } from "node:child_process";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { extname, isAbsolute, join, normalize, resolve } from "node:path";
 import os from "node:os";
 import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
-import { loadConfig, loadModelCatalog, publicConfig } from "./config.js";
+import { loadConfig, loadModelCatalogDefinition, publicConfig } from "./config.js";
+import { buildDiscoveredModels } from "./model-discovery.js";
+import { normalizeLatencyHistory, normalizeLatencyRecord } from "./latency-history.js";
+import { redactSensitiveData } from "./redaction.js";
+import { saveEditableSettings, settingsResponse } from "./settings.js";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const CONFIG = await loadConfig();
@@ -38,6 +42,7 @@ const MODEL_LAUNCH_SCRIPT = CONFIG.controller.launchScript;
 const MODEL_BACKUP_SCRIPT = `${MODEL_LAUNCH_SCRIPT}.last-known-good`;
 const MODEL_OUT_LOG = `${CONTROLLER_PATHS.pm2Logs}/${MODEL_SERVICE_NAME}-out.log`;
 const MODEL_ERROR_LOG = `${CONTROLLER_PATHS.pm2Logs}/${MODEL_SERVICE_NAME}-error.log`;
+const SPARK_DOCTOR_DIRECTORY = computePath(CONFIG.sparkDoctor.directory);
 
 function computePath(path) {
   return String(path || "")
@@ -460,7 +465,9 @@ const BUILTIN_DGX_MODEL_CATALOG = [
   },
 ];
 
-const DGX_MODEL_CATALOG = await loadModelCatalog(BUILTIN_DGX_MODEL_CATALOG);
+const MODEL_CATALOG_DEFINITION = await loadModelCatalogDefinition(BUILTIN_DGX_MODEL_CATALOG);
+const DGX_MODEL_CATALOG = MODEL_CATALOG_DEFINITION.models;
+const MODEL_DISCOVERY = MODEL_CATALOG_DEFINITION.discovery;
 
 const DEFAULT_LATENCY_THRESHOLDS = {
   ttft: { good: 0.5, watch: 2 },
@@ -552,6 +559,73 @@ async function runOnCompute(script, timeout = 20000) {
   return ssh(DGX_HOST, script, timeout);
 }
 
+async function collectSparkDoctorStatus() {
+  if (!CONFIG.capabilities.sparkDoctorConfigured) {
+    return {
+      configured: false,
+      available: false,
+      directory: SPARK_DOCTOR_DIRECTORY,
+      reason: "Spark Doctor is not enabled for this dashboard profile.",
+      upstream: "https://github.com/joeynyc/spark-doctor",
+    };
+  }
+
+  const encodedDirectory = Buffer.from(SPARK_DOCTOR_DIRECTORY, "utf8").toString("base64");
+  const probe = String.raw`
+directory=$(printf '%s' '${encodedDirectory}' | base64 -d)
+executable="$directory/.venv/bin/spark-doctor"
+available=false
+reason=''
+if [ ! -d "$directory" ]; then
+  reason='Configured directory was not found.'
+elif [ -x "$executable" ]; then
+  available=true
+elif command -v spark-doctor >/dev/null 2>&1; then
+  executable=$(command -v spark-doctor)
+  available=true
+else
+  reason='Spark Doctor executable was not found in the configured installation.'
+fi
+latest=$(ls -t "$HOME"/spark-doctor-runs/*/scan.json "$directory"/.spark-doctor/reports/*.json 2>/dev/null | head -1 || true)
+python3 - "$directory" "$executable" "$available" "$reason" "$latest" <<'PY'
+import json, pathlib, sys
+directory, executable, available, reason, latest = sys.argv[1:]
+latest_data = None
+if latest:
+    try:
+        latest_data = json.loads(pathlib.Path(latest).read_text())
+    except Exception:
+        pass
+print(json.dumps({
+    "configured": True,
+    "available": available == "true",
+    "directory": directory,
+    "executable": executable if available == "true" else "",
+    "reason": reason,
+    "upstream": "https://github.com/joeynyc/spark-doctor",
+    "latest": {"path": latest, "data": latest_data},
+}))
+PY
+`;
+  const result = await runOnCompute(probe, 10000);
+  if (!result.ok) {
+    return {
+      configured: true,
+      available: false,
+      directory: SPARK_DOCTOR_DIRECTORY,
+      reason: result.stderr || result.message || "Unable to inspect the Spark Doctor installation.",
+      upstream: "https://github.com/joeynyc/spark-doctor",
+    };
+  }
+  return redactSensitiveData(safeJsonParse(result.stdout.trim().split("\n").at(-1), {
+    configured: true,
+    available: false,
+    directory: SPARK_DOCTOR_DIRECTORY,
+    reason: "Spark Doctor returned an unreadable installation status.",
+    upstream: "https://github.com/joeynyc/spark-doctor",
+  }));
+}
+
 function assertWriteAccess(req) {
   if (CONFIG.dashboard.mode === "readonly") {
     const error = new Error("This dashboard profile is read-only.");
@@ -567,6 +641,28 @@ function assertWriteAccess(req) {
   if (supplied !== expected) {
     const error = new Error("A valid dashboard control token is required.");
     error.status = 401;
+    throw error;
+  }
+}
+
+function assertSettingsAccess(req) {
+  const expected = CONFIG.security.controlToken;
+  if (expected) {
+    const authorization = req.headers.authorization || "";
+    const supplied = authorization.startsWith("Bearer ")
+      ? authorization.slice(7)
+      : req.headers["x-dashboard-token"];
+    if (supplied !== expected) {
+      const error = new Error("A valid dashboard control token is required.");
+      error.status = 401;
+      throw error;
+    }
+    return;
+  }
+  const loopback = ["127.0.0.1", "::1", "localhost"].includes(String(CONFIG.dashboard.host).toLowerCase());
+  if (!loopback && !CONFIG.security.allowUnauthenticatedControl) {
+    const error = new Error("Settings changes require a dashboard control token when the dashboard is available over the network.");
+    error.status = 403;
     throw error;
   }
 }
@@ -1184,7 +1280,12 @@ for target in probe['targets']:
         'downloaded': downloaded,
         'verified': verified,
     }
-print(json.dumps(states))
+discovered = []
+if root.is_dir():
+    for directory in root.glob('models--*'):
+        if directory.is_dir() and any((directory / 'snapshots').glob('*')):
+            discovered.append(directory.name)
+print(json.dumps({'states': states, 'cacheDirectories': sorted(discovered)}))
 PY
 echo __VLLM__
 VLLM_PROBE_HOST="$(tailscale ip -4 2>/dev/null | head -n 1 || true)"
@@ -1245,7 +1346,8 @@ cat ${MODEL_LAUNCH_SCRIPT} 2>/dev/null || true
   const [loadRaw = "", scriptRaw = ""] = afterLoad.split("__SCRIPT__\n");
   const pm2List = safeJsonParse(pm2Raw.trim(), []);
   const process = Array.isArray(pm2List) ? pm2List.find((item) => item.name === MODEL_SERVICE_NAME) : null;
-  const installed = safeJsonParse(installedRaw.trim(), {});
+  const installProbe = safeJsonParse(installedRaw.trim(), {});
+  const installed = installProbe?.states || installProbe;
   const vllmPayload = safeJsonParse(vllmRaw.trim(), { data: [] });
   const servedModels = Array.isArray(vllmPayload?.data) ? vllmPayload.data : [];
   const loadTelemetry = safeJsonParse(loadRaw.trim(), {});
@@ -1311,7 +1413,9 @@ cat ${MODEL_LAUNCH_SCRIPT} 2>/dev/null || true
         servedNames: model.servedNames,
         modalities: model.modalities || "Text",
       };
-    }),
+    }).concat(MODEL_DISCOVERY.enabled && MODEL_DISCOVERY.includeUnknown
+      ? buildDiscoveredModels(installProbe?.cacheDirectories, DGX_MODEL_CATALOG)
+      : []),
     lastAction: lastModelControlAction,
   };
 }
@@ -1706,10 +1810,12 @@ async function runLatencyBenchmark(config, res) {
       suiteCaseIndex: config.suiteCaseIndex,
       suiteCaseCount: config.suiteCaseCount,
       stopped: controller.signal.aborted,
+      historyVersion: 2,
+      historyCategory: config.benchmarkType,
       summary,
       runs,
     };
-    latencyHistory = [...latencyHistory, record].slice(-LATENCY_HISTORY_LIMIT);
+    latencyHistory = [...latencyHistory, normalizeLatencyRecord(record)].slice(-LATENCY_HISTORY_LIMIT);
     // Persist before reporting a successful run to the browser. This prevents
     // a dashboard restart from acknowledging a benchmark that is not durable.
     await saveLatencyHistory();
@@ -1857,25 +1963,27 @@ async function loadLatencyHistory() {
   try {
     const parsed = JSON.parse(await readFile(LATENCY_HISTORY_PATH, "utf8"));
     if (!Array.isArray(parsed)) return [];
-
-    let changed = false;
-    const normalized = parsed.map((record) => {
-      const canonicalModel = LEGACY_LATENCY_MODEL_ALIASES.get(record?.model);
-      if (!canonicalModel) return record;
-      changed = true;
-      return { ...record, model: canonicalModel };
+    const normalized = normalizeLatencyHistory(parsed, {
+      modelAliases: LEGACY_LATENCY_MODEL_ALIASES,
     }).slice(-LATENCY_HISTORY_LIMIT);
-
-    if (changed) await writeFile(LATENCY_HISTORY_PATH, JSON.stringify(normalized, null, 2));
+    if (JSON.stringify(parsed) !== JSON.stringify(normalized)) {
+      await persistLatencyHistory(normalized);
+    }
     return normalized;
   } catch {
     return [];
   }
 }
 
-async function saveLatencyHistory() {
+async function persistLatencyHistory(records) {
   await mkdir(DATA_DIR, { recursive: true });
-  await writeFile(LATENCY_HISTORY_PATH, JSON.stringify(latencyHistory.slice(-LATENCY_HISTORY_LIMIT), null, 2));
+  const temporaryPath = `${LATENCY_HISTORY_PATH}.${process.pid}.tmp`;
+  await writeFile(temporaryPath, JSON.stringify(records.slice(-LATENCY_HISTORY_LIMIT), null, 2));
+  await rename(temporaryPath, LATENCY_HISTORY_PATH);
+}
+
+async function saveLatencyHistory() {
+  await persistLatencyHistory(latencyHistory);
 }
 
 function csvLineToGpu(line) {
@@ -2038,11 +2146,6 @@ docker ps --format '{{json .}}' 2>/dev/null || true
 echo __PROCS__
 ps -eo pid,ppid,%cpu,%mem,rss,comm,args | grep -Ei 'vllm|ollama|open-webui|llama|triton|text-generation|VLLM' | grep -Ev 'grep|awk|bash -lc|python3 - <<' | head -40
 echo __LATEST_SPARK_DOCTOR__
-latest=$(ls -t "$HOME"/spark-doctor-runs/*/scan.json "$HOME"/src/spark-doctor/.spark-doctor/reports/*.json 2>/dev/null | head -1 || true)
-if [ -n "$latest" ]; then
-  echo "$latest"
-  cat "$latest"
-fi
 echo __VLLM_MODELS__
 VLLM_PROBE_HOST="$(tailscale ip -4 2>/dev/null | head -n 1 || true)"
 if [ -n "$VLLM_PROBE_HOST" ]; then
@@ -2354,9 +2457,21 @@ function bytesToGb(bytes) {
 }
 
 async function collectAll() {
-  const [dgx, pm2, gateway] = await Promise.all([collectDgx(), collectPm2(), collectGateway()]);
+  const [dgx, pm2, gateway, sparkDoctor] = await Promise.all([
+    collectDgx(),
+    collectPm2(),
+    collectGateway(),
+    collectSparkDoctorStatus(),
+  ]);
+  dgx.sparkDoctor = sparkDoctor;
+  if (sparkDoctor.latest?.path) dgx.latestSparkDoctor = sparkDoctor.latest;
   const liveVllm = await collectLiveVllmMetrics();
-  lastSnapshot = { collectedAt: new Date().toISOString(), config: publicConfig(CONFIG), dgx, pm2, gateway, liveVllm };
+  const runtimeConfig = publicConfig(CONFIG);
+  runtimeConfig.capabilities = {
+    ...runtimeConfig.capabilities,
+    sparkDoctor: Boolean(sparkDoctor.available),
+  };
+  lastSnapshot = { collectedAt: new Date().toISOString(), config: runtimeConfig, dgx, pm2, gateway, liveVllm };
   const point = historyPoint(lastSnapshot);
   history = [...history, point].slice(-HISTORY_LIMIT);
   try {
@@ -2368,18 +2483,26 @@ async function collectAll() {
 }
 
 async function runSparkDoctor() {
-  if (!CONFIG.capabilities.sparkDoctor) {
-    return { ok: false, disabled: true, error: "Spark Doctor is disabled for this dashboard profile." };
+  const installation = await collectSparkDoctorStatus();
+  if (!installation.available) {
+    const error = new Error(installation.reason || "Spark Doctor is disabled or unavailable.");
+    error.status = 503;
+    throw error;
   }
   if (runInFlight) return runInFlight;
+  const encodedDirectory = Buffer.from(installation.directory, "utf8").toString("base64");
+  const encodedExecutable = Buffer.from(installation.executable, "utf8").toString("base64");
+  const encodedRunsDirectory = Buffer.from(`${CONTROLLER_HOME}/spark-doctor-runs`, "utf8").toString("base64");
   const remote = String.raw`
 set -e
-cd "$HOME/src/spark-doctor"
-. .venv/bin/activate
-run_dir="$HOME/spark-doctor-runs/$(date +%Y%m%d-%H%M%S)"
+directory=$(printf '%s' '${encodedDirectory}' | base64 -d)
+executable=$(printf '%s' '${encodedExecutable}' | base64 -d)
+runs_directory=$(printf '%s' '${encodedRunsDirectory}' | base64 -d)
+cd "$directory"
+run_dir="$runs_directory/$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$run_dir"
 set +e
-spark-doctor scan --json "$run_dir/scan.json" --markdown "$run_dir/report.md" >/tmp/spark-doctor-dashboard.log 2>&1
+"$executable" scan --json "$run_dir/scan.json" --markdown "$run_dir/report.md" >/tmp/spark-doctor-dashboard.log 2>&1
 status=$?
 set -e
 python3 - "$run_dir" "$status" <<'PY'
@@ -2403,10 +2526,14 @@ exit 0
 
   runInFlight = runOnCompute(remote, 120000).then((res) => {
     if (!res.ok) {
-      lastSparkDoctorRun = { ok: false, collectedAt: new Date().toISOString(), error: res.stderr || res.message };
+      lastSparkDoctorRun = redactSensitiveData({ ok: false, collectedAt: new Date().toISOString(), error: res.stderr || res.message });
       return lastSparkDoctorRun;
     }
-    lastSparkDoctorRun = { ok: true, collectedAt: new Date().toISOString(), ...safeJsonParse(res.stdout, { raw: res.stdout }) };
+    lastSparkDoctorRun = redactSensitiveData({
+      ok: true,
+      collectedAt: new Date().toISOString(),
+      ...safeJsonParse(res.stdout, { raw: res.stdout }),
+    });
     return lastSparkDoctorRun;
   }).finally(() => {
     runInFlight = null;
@@ -2415,7 +2542,9 @@ exit 0
 }
 
 async function sendJson(res, status, data) {
-  const body = JSON.stringify(data, null, 2);
+  // Treat every API response as a security boundary. System collectors and
+  // model diagnostics can contain credentials in command lines or nested data.
+  const body = JSON.stringify(redactSensitiveData(data), null, 2);
   res.writeHead(status, {
     "content-type": "application/json; charset=utf-8",
     "cache-control": "no-store",
@@ -2457,6 +2586,18 @@ createServer(async (req, res) => {
     if (url.pathname === "/api/config") {
       return sendJson(res, 200, publicConfig(CONFIG));
     }
+    if (url.pathname === "/api/settings") {
+      if (req.method === "GET") return sendJson(res, 200, settingsResponse(CONFIG));
+      if (req.method === "POST") {
+        assertSettingsAccess(req);
+        try {
+          return sendJson(res, 200, await saveEditableSettings(CONFIG, await readJsonBody(req)));
+        } catch (error) {
+          return sendJson(res, 400, { error: error.message });
+        }
+      }
+      return sendJson(res, 405, { error: "Method not allowed." });
+    }
     if (url.pathname === "/api/status") {
       const refresh = url.searchParams.get("refresh") === "1";
       const data = refresh || !lastSnapshot ? await collectAll() : lastSnapshot;
@@ -2491,6 +2632,7 @@ createServer(async (req, res) => {
       return sendJson(res, 200, { profiles: CODING_PROMPTS, visualProfiles: VISUAL_PROMPTS, codingSuites: CODING_BENCHMARK_SUITES, ...(await fetchVllmModels()) });
     }
     if (url.pathname === "/api/latency/history") {
+      latencyHistory = await loadLatencyHistory();
       return sendJson(res, 200, { limit: LATENCY_HISTORY_LIMIT, runs: latencyHistory.slice().reverse() });
     }
     if (url.pathname === "/api/latency/stop" && req.method === "POST") {

@@ -7,7 +7,8 @@
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-76B900?style=flat-square)](#deployment-options)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=111111)](#tech-stack)
 [![Node.js](https://img.shields.io/badge/Node.js-22%2B-5FA04E?style=flat-square&logo=nodedotjs&logoColor=white)](#quick-start)
-[![vLLM](https://img.shields.io/badge/inference-vLLM-76B900?style=flat-square)](#architecture)
+[![OpenAI-compatible](https://img.shields.io/badge/inference-OpenAI--compatible-76B900?style=flat-square)](#inference-engine-support)
+[![vLLM](https://img.shields.io/badge/vLLM-enhanced%20integration-76B900?style=flat-square)](#inference-engine-support)
 [![License](https://img.shields.io/badge/license-MIT-2EA44F?style=flat-square)](LICENSE)
 
 by [Brian McGuire](https://x.com/brianmcguire)
@@ -16,9 +17,9 @@ by [Brian McGuire](https://x.com/brianmcguire)
 
 </div>
 
-A self-hosted operations dashboard for local AI inference: system health, vLLM telemetry, guarded model switching, and repeatable coding and visual benchmarks.
+A self-hosted operations dashboard for local AI inference: system health, inference telemetry, guarded model switching, and repeatable coding and visual benchmarks.
 
-Use it on one computer, or run the dashboard separately from a remote NVIDIA compute host. Monitoring and benchmarking work with a reachable OpenAI-compatible endpoint; full model lifecycle control is designed for a DGX Spark running vLLM under PM2.
+Use it on one computer, or run the dashboard separately from a remote NVIDIA compute host. Host monitoring does not require vLLM. Benchmarking works with a reachable OpenAI-compatible endpoint from vLLM or another inference engine. The enhanced telemetry and full model lifecycle controls currently use vLLM-specific metrics and a DGX Spark vLLM service managed by PM2.
 
 > **Independent project notice:** Spark AI Lab is not affiliated with, sponsored by, or endorsed by NVIDIA Corporation. NVIDIA, the NVIDIA logo, DGX, and DGX Spark are trademarks and/or registered trademarks of NVIDIA Corporation in the United States and other countries.
 
@@ -28,6 +29,7 @@ Use it on one computer, or run the dashboard separately from a remote NVIDIA com
 - [Why This Project](#why-this-project)
 - [Features](#features)
 - [Deployment Options](#deployment-options)
+- [Inference Engine Support](#inference-engine-support)
 - [Quick Start](#quick-start)
 - [Architecture](#architecture)
 - [Tech Stack](#tech-stack)
@@ -61,9 +63,9 @@ The dashboard combines live inference telemetry with retained host metrics so mo
 | Inference diagnostics | Speculative-decoding acceptance, acceptance by token position, and prompt/output-size distributions |
 | Endpoint health | `/v1/models`, `/metrics`, gateway-to-vLLM connectivity, and a synthetic completion probe with measured latency |
 
-Live vLLM cards refresh every five seconds. Retained performance charts correlate throughput, request pressure, and latency with GPU, memory, CPU, disk, network, and process activity over time. Optional collectors are capability-driven, so sections such as PM2 or speculative decoding are shown only when the configured environment exposes them.
+When vLLM metrics are configured, live inference cards refresh every five seconds. Retained performance charts correlate throughput, request pressure, and latency with GPU, memory, CPU, disk, network, and process activity over time. Optional collectors are capability-driven, so sections such as PM2, vLLM latency histograms, or speculative decoding are shown only when the configured environment exposes them.
 
-The **Run Spark Doctor** action performs a deeper on-demand DGX diagnostic and folds the latest result back into the health view.
+When the separately installed [Spark Doctor](https://github.com/joeynyc/spark-doctor) integration is enabled and detected, the dashboard exposes an on-demand DGX diagnostic action and folds its latest result into the health view. Clean installations hide these controls. See [Third-Party Notices](THIRD_PARTY_NOTICES.md) for attribution.
 
 ### Model Benchmark Lab
 
@@ -156,6 +158,22 @@ Most inference dashboards stop at charts. Spark AI Lab combines observability wi
 
 Rich NVIDIA and vLLM panels appear only when their telemetry is available. A Mac-only installation does not require a DGX Spark.
 
+## Inference Engine Support
+
+vLLM is the most complete integration, but it is not required for the entire project.
+
+| Capability | vLLM | Other OpenAI-compatible engine |
+| --- | --- | --- |
+| Host health and resource monitoring | Yes | Yes |
+| Coding and visual benchmark requests | Yes | Yes, when the endpoint supports the request format and selected modality |
+| Streamed output, TTFT, TPS, token counts, and end-to-end timing | Yes | Yes, when the endpoint returns standard streaming and usage data |
+| Native queue, cache, latency-histogram, and speculative-decoding telemetry | Yes | Not until an engine-specific metrics adapter is available |
+| Dashboard-managed model start, stop, and replacement | Yes, with the DGX/vLLM controller profile | No; manage the engine externally |
+
+Users can point the benchmark profile at any compatible `/v1` endpoint, including an independently managed local or remote engine. Engines such as SGLang, llama.cpp, Ollama, or Text Generation Inference may work when their OpenAI-compatible API behavior matches the benchmark client, but they are not yet first-class telemetry or lifecycle-control integrations.
+
+The adapter boundary is intentional: a future engine integration can map its health and metrics into the dashboard's capability model without changing the benchmark UI. Unsupported panels remain hidden rather than reporting misleading zero values.
+
 ## Quick Start
 
 ### Requirements
@@ -177,7 +195,7 @@ npm run build
 npm start
 ```
 
-Open `http://127.0.0.1:4174`. The setup wizard creates an ignored local configuration file and defaults to read-only localhost access.
+Open `http://127.0.0.1:4174`. The setup wizard creates an ignored local configuration file and defaults to read-only localhost access. After startup, use the **Settings** tab to adjust branding, host connections, inference endpoints, and optional integrations without editing JSON. Restart the dashboard after saving settings so every collector uses the new configuration.
 
 ### Run as a Service
 
@@ -247,6 +265,15 @@ This avoids treating every model as interchangeable. Tool parsers, context limit
 
 Run `npm run setup` to create `config/dashboard.local.json`. Local configuration and secrets are ignored by Git.
 
+The **Settings** tab provides a guided editor for common, non-secret options:
+
+- Dashboard title, sidebar identity, logo, mode, host, and port
+- Local or SSH compute connection
+- OpenAI-compatible inference and metrics endpoints
+- Optional PM2 and gateway visibility
+
+Settings controlled by environment variables are shown as managed and cannot be overwritten in the browser. Security tokens, SSH credentials, model launch recipes, arbitrary commands, and other privileged settings remain file- or environment-managed. This keeps the convenient editor from becoming a remote administration surface.
+
 | Profile | Mode | Purpose |
 | --- | --- | --- |
 | Local monitoring | `readonly` | Health and available telemetry without write operations |
@@ -259,8 +286,9 @@ Advanced examples:
 - `config/local-benchmark.example.json`
 - `config/remote-dgx.example.json`
 - `config/models.example.json`
+- `config/dashboard.schema.json`
 
-Configuration loads from defaults, then the ignored local file, then supported environment overrides. See [Configuration](docs/CONFIGURATION.md) for model discovery, catalog recipes, capability flags, and precedence.
+Configuration loads from defaults, then the ignored local file, then supported environment overrides. The included JSON Schema provides validation and editor completion for advanced configuration. See [Configuration](docs/CONFIGURATION.md) for guided settings, model discovery, catalog recipes, capability flags, and precedence.
 
 The upper-left profile image is bundled as `public/dgx-spark-icon.png` and included in every install and production build. It can be replaced with a local or hosted image through `dashboard.logoUrl`; invalid custom images fall back to the bundled default.
 
@@ -271,6 +299,8 @@ The browser uses these local endpoints. Write routes require control authorizati
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
 | `GET` | `/api/config` | Public dashboard capabilities and labels |
+| `GET` | `/api/settings` | Editable settings and environment-managed state |
+| `POST` | `/api/settings` | Validate and persist safe local settings |
 | `GET` | `/api/status` | Current health snapshot |
 | `GET` | `/api/history` | Retained system and inference telemetry |
 | `GET` | `/api/vllm/live` | Live vLLM metrics |
@@ -298,6 +328,8 @@ Benchmark output is streamed with server-sent events so individual runs and metr
 ├── src/                    React dashboard and responsive styling
 ├── test/                   Configuration and model-discovery tests
 ├── ecosystem.config.cjs    PM2 service definition
+├── CHANGELOG.md            User-visible release history
+├── THIRD_PARTY_NOTICES.md  Optional integration attribution
 └── SECURITY.md             Deployment boundary and reporting policy
 ```
 
@@ -335,6 +367,7 @@ See [Contributing](CONTRIBUTING.md) for project rules and credential hygiene.
 The next packaging and observability improvements under consideration are:
 
 - Docker and Docker Compose installation for a reproducible read-only or benchmark deployment
+- A first-run connection test that can validate compute and inference endpoints before saving
 - Multiple named inference endpoints in one dashboard
 - Pluggable collector adapters beyond vLLM while preserving capability-based panels
 - Optional push-based live telemetry for larger or multi-host installations
