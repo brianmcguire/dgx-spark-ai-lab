@@ -11,6 +11,7 @@ import { buildDiscoveredModels } from "./model-discovery.js";
 import { normalizeLatencyHistory, normalizeLatencyRecord } from "./latency-history.js";
 import { redactSensitiveData } from "./redaction.js";
 import { saveEditableSettings, settingsResponse } from "./settings.js";
+import { staticResponseHeaders } from "./static-cache.js";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const CONFIG = await loadConfig();
@@ -2587,11 +2588,11 @@ async function serveStatic(req, res) {
       ".webmanifest": "application/manifest+json; charset=utf-8",
     };
     const type = contentTypes[ext] || "application/octet-stream";
-    res.writeHead(200, { "content-type": type });
+    res.writeHead(200, staticResponseHeaders(pathname, type));
     res.end(data);
   } catch {
     const data = await readFile(join(DIST, "index.html"));
-    res.writeHead(200, { "content-type": "text/html" });
+    res.writeHead(200, staticResponseHeaders(pathname, "text/html; charset=utf-8", { fallback: true }));
     res.end(data);
   }
 }
