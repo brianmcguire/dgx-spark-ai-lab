@@ -4,6 +4,8 @@
   "dashboard": {
     "title": "Local AI Operations Lab",
     "brand": "AI Operations",
+    "logoUrl": "/dgx-spark-icon.png",
+    "logoAlt": "AI Operations profile",
     "subtitle": "Inference health, telemetry, and repeatable model benchmarks.",
     "host": "127.0.0.1",
     "port": 4174,

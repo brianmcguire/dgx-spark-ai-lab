@@ -14,12 +14,15 @@ import {
   MemoryStick,
   Play,
   RefreshCcw,
+  Save,
   Server,
+  Settings2,
   Square,
   TerminalSquare,
   Trash2,
   Zap,
 } from "lucide-react";
+import { initialCodingBenchmarkView } from "./benchmark-history.js";
 import "./styles.css";
 
 const number = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
@@ -35,11 +38,14 @@ const DASHBOARD_TABS = [
   { id: "health", label: "Health Dashboard", detail: "Health, telemetry, and trends", icon: Activity },
   { id: "controller", label: "Model Controller", detail: "Primary vLLM service control", icon: TerminalSquare },
   { id: "latency", label: "Model Benchmark Lab", detail: "Coding and visual throughput benchmarks", icon: Gauge },
+  { id: "settings", label: "Settings", detail: "Identity, connections, and optional services", icon: Settings2 },
 ];
 
 const FALLBACK_CONFIG = {
   title: "AI Operations Lab",
   brand: "AI Operations",
+  logoUrl: "/dgx-spark-icon.png",
+  logoAlt: "AI Operations profile",
   subtitle: "Inference health, telemetry, and repeatable model benchmarks.",
   compute: { label: "Compute host", host: "local", connection: "local" },
   services: { pm2: { enabled: false }, gateway: { enabled: false } },
@@ -48,7 +54,7 @@ const FALLBACK_CONFIG = {
 
 function visibleTabs(config) {
   return DASHBOARD_TABS.filter(({ id }) => (
-    id === "health"
+    id === "health" || id === "settings"
     || (id === "controller" && config.capabilities?.modelControl)
     || (id === "latency" && config.capabilities?.benchmarks)
   ));
@@ -68,12 +74,37 @@ const HASH_TO_TAB = {
   pm2: "health",
   "model-control": "controller",
   latency: "latency",
+  settings: "settings",
 };
 
 function ProviderMark({ providerLogo, className = "" }) {
   const source = PROVIDER_LOGO_PATHS[providerLogo];
   if (!source) return null;
   return <span className={`provider-mark ${className}`.trim()} aria-hidden="true"><img src={source} alt="" /></span>;
+}
+
+function BrandAvatar({ source, alt }) {
+  const fallbackSource = "/dgx-spark-icon.png";
+  const [imageSource, setImageSource] = useState(source || fallbackSource);
+  const [hidden, setHidden] = useState(false);
+
+  useEffect(() => {
+    setImageSource(source || fallbackSource);
+    setHidden(false);
+  }, [source]);
+
+  if (hidden) return null;
+  return (
+    <img
+      className="brand-avatar"
+      src={imageSource}
+      alt={alt || "Dashboard profile"}
+      onError={() => {
+        if (imageSource !== fallbackSource) setImageSource(fallbackSource);
+        else setHidden(true);
+      }}
+    />
+  );
 }
 
 function bytesToGb(bytes) {
@@ -133,8 +164,9 @@ function formatTimeLabel(value) {
 
 async function api(path, options) {
   const res = await fetch(path, options ? { ...options, headers: controlHeaders(options.headers) } : options);
-  if (!res.ok) throw new Error(`Request failed: ${res.status}`);
-  return res.json();
+  const payload = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(payload?.error || `Request failed: ${res.status}`);
+  return payload;
 }
 
 async function streamApi(path, payload, onEvent) {
@@ -896,7 +928,15 @@ function ModelControlPanel() {
             memoryUsedGb: control?.service?.memoryUsedGb,
             loadedMemoryGb: 0,
           } : null);
-          const status = model.active ? "active" : loading ? "loading" : model.installed ? model.status === "ready" ? "ready" : "staged" : "unavailable";
+          const status = model.active
+            ? "active"
+            : loading
+              ? "loading"
+              : model.setupRequired
+                ? "discovered"
+                : model.installed
+                  ? model.status === "ready" ? "ready" : "staged"
+                  : "unavailable";
           const elapsedMinutes = Math.floor((progress?.elapsedSeconds || 0) / 60);
           const elapsedSeconds = (progress?.elapsedSeconds || 0) % 60;
           const elapsedLabel = elapsedMinutes ? `${elapsedMinutes}m ${String(elapsedSeconds).padStart(2, "0")}s` : `${elapsedSeconds}s`;
@@ -956,6 +996,8 @@ function ModelControlPanel() {
                 <button className="clear-button model-loading-button" disabled><RefreshCcw className="spin" size={15} />Loading {progress?.percent || 0}%</button>
               ) : model.active ? (
                 <button className="clear-button" onClick={() => sendAction("restart")} disabled={Boolean(pending)}><RefreshCcw size={15} />Restart Active</button>
+              ) : model.setupRequired ? (
+                <button className="clear-button" disabled title="Add a reviewed launch profile to config/models.local.json before starting this checkpoint."><AlertTriangle size={15} />Setup Required</button>
               ) : (
                 <button className="primary" onClick={() => sendAction("activate", model.key)} disabled={!model.installed || Boolean(pending)}><Play size={15} />Replace Primary</button>
               )}
@@ -1121,8 +1163,14 @@ function LatencyLab() {
 
   async function loadCatalog() {
     const [modelsData, historyData] = await Promise.all([api("/api/latency/models"), api("/api/latency/history")]);
+    const loadedHistory = historyData.runs || [];
     setCatalog(modelsData);
-    setHistory(historyData.runs || []);
+    setHistory(loadedHistory);
+    const initialView = initialCodingBenchmarkView(loadedHistory, modelsData.codingSuites);
+    setBenchmarkPlan(initialView.benchmarkPlan);
+    if (initialView.profile) setProfile(initialView.profile);
+    if (initialView.maxTokens) setMaxTokens(initialView.maxTokens);
+    if (initialView.parallel) setParallel(initialView.parallel);
     const activeModel = modelsData.catalogModels?.find((item) => item.state === "active" && item.selectable);
     setModel((current) => activeModel?.id || current || modelsData.selectableModels?.[0]?.id || modelsData.models?.[0]?.id || "");
   }
@@ -1312,7 +1360,7 @@ function LatencyLab() {
   const visualModelReady = benchmarkType !== "visual" || selectedModel?.visualCapable;
   const isReady = selectableModels.length && model && visualModelReady;
   const stagedModels = visibleModels.filter((item) => item.state === "staged");
-  const relevantHistory = history.filter((entry) => benchmarkType === "visual" ? entry.benchmarkType === "visual" : entry.benchmarkType !== "visual");
+  const relevantHistory = history.filter((entry) => entry.historyCategory === benchmarkType);
 
   return (
     <section className="panel wide latency-panel" id="latency">
@@ -1510,7 +1558,7 @@ function Sidebar({ config, tabs, dgx, pm2, gateway, activeTab, onNavigate }) {
   return (
     <aside className="sidebar">
       <div className="brand">
-        <img className="brand-avatar" src="/dgx-spark-icon.png" alt="DGX Spark profile" />
+        <BrandAvatar source={config.logoUrl} alt={config.logoAlt} />
         <div>
           <strong>{config.brand || config.title}</strong>
           <span>{config.capabilities?.modelControl ? "Models, benchmarks, and system telemetry" : "Inference monitoring and telemetry"}</span>
@@ -1550,7 +1598,7 @@ function Sidebar({ config, tabs, dgx, pm2, gateway, activeTab, onNavigate }) {
 }
 
 function DashboardTabs({ tabs, activeTab, onNavigate }) {
-  const mobileLabels = { health: "Health", controller: "Models", latency: "Benchmarks" };
+  const mobileLabels = { health: "Health", controller: "Models", latency: "Benchmarks", settings: "Settings" };
   return (
     <div className="workspace-tabs" role="tablist" aria-label="Dashboard views">
       {tabs.map(({ id, label, detail, icon: Icon }) => (
@@ -1571,6 +1619,187 @@ function DashboardTabs({ tabs, activeTab, onNavigate }) {
         </button>
       ))}
     </div>
+  );
+}
+
+function settingValue(object, path) {
+  return path.split(".").reduce((value, key) => value?.[key], object);
+}
+
+function withSetting(object, path, value) {
+  const copy = structuredClone(object);
+  const keys = path.split(".");
+  let target = copy;
+  for (const key of keys.slice(0, -1)) {
+    target[key] ||= {};
+    target = target[key];
+  }
+  target[keys.at(-1)] = value;
+  return copy;
+}
+
+function SettingsField({ form, managed, path, label, help, type = "text", options = [], onChange }) {
+  const managedBy = managed[path];
+  const value = settingValue(form, path) ?? "";
+  const inputProps = {
+    id: `setting-${path}`,
+    value,
+    disabled: Boolean(managedBy),
+    onChange: (event) => onChange(path, type === "number" ? Number(event.target.value) : event.target.value),
+  };
+  return (
+    <label className="settings-field" htmlFor={inputProps.id}>
+      <span>{label}</span>
+      {options.length ? (
+        <select {...inputProps}>{options.map(({ value: optionValue, label: optionLabel }) => <option key={optionValue} value={optionValue}>{optionLabel}</option>)}</select>
+      ) : (
+        <input {...inputProps} type={type} />
+      )}
+      <small>{managedBy ? `Managed by ${managedBy}` : help}</small>
+    </label>
+  );
+}
+
+function SettingsToggle({ form, managed, path, label, help, onChange }) {
+  const managedBy = managed[path];
+  const checked = Boolean(settingValue(form, path));
+  return (
+    <label className="settings-toggle">
+      <span>
+        <strong>{label}</strong>
+        <small>{managedBy ? `Managed by ${managedBy}` : help}</small>
+      </span>
+      <input type="checkbox" checked={checked} disabled={Boolean(managedBy)} onChange={(event) => onChange(path, event.target.checked)} />
+    </label>
+  );
+}
+
+function SettingsPanel() {
+  const [form, setForm] = useState(null);
+  const [managed, setManaged] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  async function loadSettings() {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch("/api/settings");
+      if (!response.ok) throw new Error(`Unable to load settings (${response.status}).`);
+      const payload = await response.json();
+      setForm(payload.values);
+      setManaged(payload.managed || {});
+    } catch (loadError) {
+      setError(loadError.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { loadSettings(); }, []);
+
+  function update(path, value) {
+    setForm((current) => withSetting(current, path, value));
+    setMessage("");
+  }
+
+  async function saveSettings(event) {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    setMessage("");
+    try {
+      const response = await fetch("/api/settings", {
+        method: "POST",
+        headers: controlHeaders({ "content-type": "application/json" }),
+        body: JSON.stringify(form),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || `Unable to save settings (${response.status}).`);
+      setForm(payload.values);
+      setManaged(payload.managed || {});
+      setMessage("Settings saved. Restart the dashboard service to apply connection or listening changes.");
+    } catch (saveError) {
+      setError(saveError.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) return <section className="settings-panel"><p>Loading settings...</p></section>;
+  if (!form) return <section className="settings-panel"><div className="error-banner"><AlertTriangle size={18} />{error || "Settings are unavailable."}</div></section>;
+
+  const modeOptions = [
+    { value: "readonly", label: "Read only" },
+    { value: "benchmark", label: "Benchmark controls" },
+    { value: "full", label: "Full model controls" },
+  ];
+  const connectionOptions = [
+    { value: "local", label: "This computer" },
+    { value: "ssh", label: "Remote over SSH" },
+  ];
+
+  return (
+    <form className="settings-panel" onSubmit={saveSettings}>
+      <div className="settings-header">
+        <div>
+          <h2>Settings</h2>
+          <p>Customize the dashboard and connect it to your compute and inference services.</p>
+        </div>
+        <button className="primary settings-save" type="submit" disabled={saving}><Save size={18} />{saving ? "Saving" : "Save Settings"}</button>
+      </div>
+      <div className="settings-notice">
+        <LockKeyhole size={19} />
+        <span>Credentials, control tokens, and model launch recipes stay in environment variables or configuration files. This screen only edits common, non-secret settings.</span>
+      </div>
+      {error && <div className="error-banner"><AlertTriangle size={18} />{error}</div>}
+      {message && <div className="success-slab"><CheckCircle2 size={18} />{message}</div>}
+
+      <section className="settings-section">
+        <div className="settings-section-title"><h3>Identity and access</h3><p>Brand the interface and choose which controls are exposed.</p></div>
+        <div className="settings-grid">
+          <SettingsField form={form} managed={managed} path="dashboard.title" label="Dashboard title" help="The primary page heading." onChange={update} />
+          <SettingsField form={form} managed={managed} path="dashboard.brand" label="Sidebar brand" help="Short name shown beside the profile image." onChange={update} />
+          <SettingsField form={form} managed={managed} path="dashboard.subtitle" label="Subtitle" help="A concise description of this installation." onChange={update} />
+          <SettingsField form={form} managed={managed} path="dashboard.logoUrl" label="Logo URL or path" help="Use a bundled path such as /dgx-spark-icon.png or an HTTPS URL." onChange={update} />
+          <SettingsField form={form} managed={managed} path="dashboard.logoAlt" label="Logo description" help="Accessible description for the profile image." onChange={update} />
+          <SettingsField form={form} managed={managed} path="dashboard.mode" label="Operating mode" help="Controls whether model and benchmark actions are available." options={modeOptions} onChange={update} />
+          <SettingsField form={form} managed={managed} path="dashboard.host" label="Listen address" help="Use 127.0.0.1 for local-only access or 0.0.0.0 for trusted-network access." onChange={update} />
+          <SettingsField form={form} managed={managed} path="dashboard.port" label="Port" help="Web server port." type="number" onChange={update} />
+        </div>
+      </section>
+
+      <section className="settings-section">
+        <div className="settings-section-title"><h3>Compute and inference</h3><p>Point the dashboard at the machine and OpenAI-compatible inference endpoint it should monitor.</p></div>
+        <div className="settings-grid">
+          <SettingsField form={form} managed={managed} path="compute.label" label="Compute label" help="Friendly name for the monitored host." onChange={update} />
+          <SettingsField form={form} managed={managed} path="compute.connection" label="Compute connection" help="Collect locally or through SSH." options={connectionOptions} onChange={update} />
+          <SettingsField form={form} managed={managed} path="compute.host" label="Compute host" help="Hostname or SSH target." onChange={update} />
+          <SettingsField form={form} managed={managed} path="inference.apiUrl" label="Inference API URL" help="OpenAI-compatible API base URL, normally ending in /v1." onChange={update} />
+          <SettingsField form={form} managed={managed} path="inference.metricsUrl" label="Metrics URL" help="Optional Prometheus-compatible metrics endpoint." onChange={update} />
+        </div>
+      </section>
+
+      <section className="settings-section">
+        <div className="settings-section-title"><h3>Optional integrations</h3><p>Show extra operational services only when this installation uses them.</p></div>
+        <div className="settings-toggle-grid">
+          <SettingsToggle form={form} managed={managed} path="services.pm2.enabled" label="PM2 monitoring" help="Collect Node.js process status from a local or remote host." onChange={update} />
+          <SettingsToggle form={form} managed={managed} path="services.gateway.enabled" label="Inference gateway" help="Monitor an optional application-facing LLM gateway." onChange={update} />
+          <SettingsToggle form={form} managed={managed} path="sparkDoctor.enabled" label="Spark Doctor" help="Show diagnostic controls only when an external Spark Doctor installation is detected." onChange={update} />
+        </div>
+        <div className="settings-grid">
+          <SettingsField form={form} managed={managed} path="services.pm2.label" label="PM2 label" help="Friendly name for the PM2 host." onChange={update} />
+          <SettingsField form={form} managed={managed} path="services.pm2.connection" label="PM2 connection" help="Collect locally or through SSH." options={connectionOptions} onChange={update} />
+          <SettingsField form={form} managed={managed} path="services.pm2.host" label="PM2 host" help="Hostname or SSH target for PM2 collection." onChange={update} />
+          <SettingsField form={form} managed={managed} path="services.gateway.label" label="Gateway label" help="Friendly name for the gateway." onChange={update} />
+          <SettingsField form={form} managed={managed} path="services.gateway.apiUrl" label="Gateway API URL" help="Health or API URL used to check gateway availability." onChange={update} />
+          <SettingsField form={form} managed={managed} path="sparkDoctor.directory" label="Spark Doctor directory" help="Path to the separately installed joeynyc/spark-doctor project on the compute host." onChange={update} />
+        </div>
+      </section>
+      <div className="settings-footer"><button className="primary settings-save" type="submit" disabled={saving}><Save size={18} />{saving ? "Saving" : "Save Settings"}</button></div>
+    </form>
   );
 }
 
@@ -1641,7 +1870,7 @@ function DgxOverview({ dgx, liveGpu }) {
 
   return (
     <div className="overview-grid">
-      <MetricCard icon={CheckCircle2} label="Spark Doctor" value={overall} detail={dgx?.latestSparkDoctor?.path || "latest report discovered"} tone={overall === "OK" ? "good" : "warn"} />
+      {dgx?.sparkDoctor?.available && <MetricCard icon={CheckCircle2} label="Spark Doctor" value={overall} detail={dgx?.latestSparkDoctor?.path || "No saved report yet"} tone={overall === "OK" ? "good" : "warn"} />}
       <MetricCard icon={Gauge} label="GPU utilization" value={`${number.format(gpu.util || 0)}%`} detail={`${gpu.name || "NVIDIA GPU"} · driver ${gpu.driver || "unknown"}`} gauge={gpu.util || 0} />
       <MetricCard icon={Zap} label="Power / Temp" value={`${number.format(gpu.power || 0)} W`} detail={`${number.format(gpu.temp || 0)} C · ${number.format(gpu.clock || 0)} MHz`} tone={(gpu.temp || 0) > 80 ? "warn" : "default"} />
       <MetricCard icon={MemoryStick} label="Memory used" value={`${number.format(usedPct)}%`} detail={`${number.format(availGb)} GB free · ${number.format(totalGb)} GB total`} gauge={usedPct} />
@@ -1780,6 +2009,7 @@ function SparkDoctorPanel({ dgx, lastRun }) {
         </div>
         <StatusPill ok={!findings.length}>{findings.length ? `${findings.length} findings` : "clean"}</StatusPill>
       </div>
+      <p className="integration-credit">Optional diagnostics provided by the external <a href="https://github.com/joeynyc/spark-doctor" target="_blank" rel="noreferrer">Spark Doctor project</a> (MIT).</p>
       {findings.length ? (
         <div className="table findings">
           <div className="row head"><span>Severity</span><span>Rule</span><span>Message</span></div>
@@ -1935,6 +2165,9 @@ function App() {
         {appConfig.capabilities?.benchmarks && <div className="tab-view" role="tabpanel" hidden={activeTab !== "latency"}>
           <LatencyLab />
         </div>}
+        <div className="tab-view" role="tabpanel" hidden={activeTab !== "settings"}>
+          <SettingsPanel />
+        </div>
       </main>
     </div>
   );

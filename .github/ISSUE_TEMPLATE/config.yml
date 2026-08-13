@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Configuration and installation guide
+    url: https://github.com/brianmcguire/dgx-spark-ai-lab/blob/main/docs/CONFIGURATION.md
+    about: Check supported profiles, security requirements, and connection settings first.

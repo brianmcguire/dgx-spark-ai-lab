@@ -65,6 +65,8 @@ export async function loadConfig() {
   config.dashboard.port = envNumber("PORT", config.dashboard.port);
   config.dashboard.mode = process.env.DASHBOARD_MODE || config.dashboard.mode;
   config.dashboard.title = process.env.DASHBOARD_TITLE || config.dashboard.title;
+  config.dashboard.logoUrl = process.env.DASHBOARD_LOGO_URL || config.dashboard.logoUrl || "/dgx-spark-icon.png";
+  config.dashboard.logoAlt = config.dashboard.logoAlt || `${config.dashboard.brand || config.dashboard.title} profile`;
   config.compute.host = process.env.DGX_HOST || config.compute.host;
   config.compute.connection = process.env.DGX_CONNECTION || config.compute.connection;
   config.services.pm2.host = process.env.MAC_MINI_HOST || config.services.pm2.host;
@@ -76,6 +78,7 @@ export async function loadConfig() {
   config.controller.enabled = envBoolean("MODEL_CONTROLLER_ENABLED", config.controller.enabled);
   config.controller.port = envNumber("MODEL_CONTROLLER_PORT", config.controller.port);
   config.sparkDoctor.enabled = envBoolean("SPARK_DOCTOR_ENABLED", config.sparkDoctor.enabled);
+  config.sparkDoctor.directory = process.env.SPARK_DOCTOR_DIRECTORY || config.sparkDoctor.directory;
   config.security.controlToken = process.env.DASHBOARD_CONTROL_TOKEN || config.security.controlToken || "";
   config.paths.data = process.env.DASHBOARD_DATA_DIR || config.paths.data;
 
@@ -103,6 +106,13 @@ export async function loadConfig() {
     requireAbsolutePath(config.controller.launchScript, "controller.launchScript");
     Object.entries(config.controller.paths).forEach(([key, value]) => requireAbsolutePath(value, `controller.paths.${key}`));
   }
+  if (config.sparkDoctor.enabled) {
+    const sparkDoctorDirectory = String(config.sparkDoctor.directory || "")
+      .replaceAll("$HOME", config.controller.home)
+      .replaceAll("${HOME}", config.controller.home);
+    requireAbsolutePath(sparkDoctorDirectory, "sparkDoctor.directory");
+  }
+  const sparkDoctorConfigured = config.dashboard.mode === "full" && Boolean(config.sparkDoctor.enabled);
   config.capabilities = {
     localCollection: config.compute.connection === "local",
     sshCollection: config.compute.connection === "ssh",
@@ -110,11 +120,12 @@ export async function loadConfig() {
     pm2: Boolean(config.services.pm2.enabled),
     gateway: Boolean(config.services.gateway.enabled),
     modelControl: config.dashboard.mode === "full" && Boolean(config.controller.enabled),
-    sparkDoctor: config.dashboard.mode === "full" && Boolean(config.sparkDoctor.enabled),
+    sparkDoctor: false,
+    sparkDoctorConfigured,
     benchmarks: config.dashboard.mode !== "readonly" && Boolean(config.inference.apiUrl),
   };
   const writesEnabled = config.capabilities.modelControl
-    || config.capabilities.sparkDoctor
+    || config.capabilities.sparkDoctorConfigured
     || config.capabilities.benchmarks;
   if (
     writesEnabled
@@ -129,20 +140,43 @@ export async function loadConfig() {
     );
   }
   config.loadedFrom = local && Object.keys(local).length ? configuredPath : defaultPath;
+  config.configuredPath = configuredPath;
   return config;
 }
 
-export async function loadModelCatalog(builtInModels = []) {
+export async function loadModelCatalogDefinition(builtInModels = []) {
   const configuredPath = process.env.MODEL_CATALOG_PATH
     ? resolve(process.cwd(), process.env.MODEL_CATALOG_PATH)
     : resolve(ROOT, "config/models.local.json");
   const catalog = await readJson(configuredPath);
   const customModels = Array.isArray(catalog) ? catalog : catalog.models;
-  if (!Array.isArray(customModels) || customModels.length === 0) return builtInModels;
-  if (catalog.mode === "replace") return customModels;
-  const byKey = new Map(builtInModels.map((model) => [model.key, model]));
-  customModels.forEach((model) => byKey.set(model.key, merge(byKey.get(model.key) || {}, model)));
-  return [...byKey.values()];
+  let models = builtInModels;
+  if (Array.isArray(customModels) && customModels.length > 0) {
+    if (catalog.mode === "replace") {
+      models = customModels;
+    } else {
+      const byKey = new Map(builtInModels.map((model) => [model.key, model]));
+      customModels.forEach((model) => byKey.set(model.key, merge(byKey.get(model.key) || {}, model)));
+      models = [...byKey.values()];
+    }
+  }
+
+  const enabledKeys = Array.isArray(catalog.enabledKeys) ? new Set(catalog.enabledKeys) : null;
+  if (enabledKeys?.size) models = models.filter((model) => enabledKeys.has(model.key));
+
+  return {
+    models,
+    discovery: {
+      enabled: Boolean(catalog.discovery?.enabled),
+      includeUnknown: catalog.discovery?.includeUnknown !== false,
+    },
+    initialPrimary: typeof catalog.initialPrimary === "string" ? catalog.initialPrimary : null,
+    loadedFrom: Object.keys(catalog).length ? configuredPath : null,
+  };
+}
+
+export async function loadModelCatalog(builtInModels = []) {
+  return (await loadModelCatalogDefinition(builtInModels)).models;
 }
 
 export function publicConfig(config) {
@@ -151,6 +185,8 @@ export function publicConfig(config) {
     profile: config.profile,
     title: config.dashboard.title,
     brand: config.dashboard.brand,
+    logoUrl: config.dashboard.logoUrl,
+    logoAlt: config.dashboard.logoAlt,
     subtitle: config.dashboard.subtitle,
     mode: config.dashboard.mode,
     compute: {
@@ -166,7 +202,7 @@ export function publicConfig(config) {
     controlAuthRequired: Boolean(config.security.controlToken) && Boolean(
       config.capabilities.modelControl
       || config.capabilities.benchmarks
-      || config.capabilities.sparkDoctor
+      || config.capabilities.sparkDoctorConfigured
     ),
     trustedNetworkOnly: Boolean(config.security.trustedNetworkOnly),
   };

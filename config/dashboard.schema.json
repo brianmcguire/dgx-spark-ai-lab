@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/brianmcguire/dgx-spark-ai-lab/config/dashboard.schema.json",
+  "title": "Local AI Operations Lab configuration",
+  "type": "object",
+  "properties": {
+    "schemaVersion": { "type": "integer", "minimum": 1 },
+    "profile": { "type": "string", "minLength": 1 },
+    "dashboard": {
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "brand": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "logoUrl": { "type": "string", "maxLength": 2048 },
+        "logoAlt": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "subtitle": { "type": "string", "minLength": 1, "maxLength": 180 },
+        "host": { "type": "string", "minLength": 1 },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "mode": { "enum": ["readonly", "benchmark", "full"] }
+      },
+      "additionalProperties": true
+    },
+    "compute": {
+      "type": "object",
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "connection": { "enum": ["local", "ssh"] },
+        "host": { "type": "string", "minLength": 1 },
+        "platform": { "type": "string" },
+        "nvidiaTelemetry": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
+    "inference": {
+      "type": "object",
+      "properties": {
+        "apiUrl": { "type": "string", "format": "uri", "pattern": "^https?://" },
+        "metricsUrl": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "services": {
+      "type": "object",
+      "properties": {
+        "pm2": { "$ref": "#/$defs/optionalService" },
+        "gateway": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "label": { "type": "string" },
+            "apiUrl": { "type": "string" }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "controller": { "type": "object", "additionalProperties": true },
+    "sparkDoctor": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "directory": { "type": "string", "pattern": "^(?:/|\\$HOME/|\\$\\{HOME\\}/)[A-Za-z0-9._/-]+$" }
+      },
+      "additionalProperties": true
+    },
+    "security": { "type": "object", "additionalProperties": true },
+    "paths": { "type": "object", "additionalProperties": true }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "optionalService": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "label": { "type": "string" },
+        "connection": { "enum": ["local", "ssh"] },
+        "host": { "type": "string" }
+      },
+      "additionalProperties": true
+    }
+  }
+}
