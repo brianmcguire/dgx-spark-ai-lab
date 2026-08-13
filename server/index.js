@@ -27,7 +27,7 @@ const HISTORY_RETENTION_DAYS = Number(process.env.HISTORY_RETENTION_DAYS || 90);
 const HF_CACHE_TTL_MS = Number(process.env.HF_CACHE_TTL_MS || 60 * 60 * 1000);
 const VLLM_METRICS_URL = CONFIG.inference.metricsUrl;
 const VLLM_API_URL = CONFIG.inference.apiUrl;
-const VLLM_API_KEY = process.env.VLLM_API_KEY || "";
+let VLLM_API_KEY = process.env.VLLM_API_KEY || "";
 const AGENT_GATEWAY_API_URL = CONFIG.services.gateway.apiUrl;
 const VLLM_LIVE_POLL_INTERVAL_MS = Number(process.env.VLLM_LIVE_POLL_INTERVAL_MS || 5000);
 const SYNTHETIC_PROBE_INTERVAL_MS = Number(process.env.SYNTHETIC_PROBE_INTERVAL_MS || 10 * 60 * 1000);
@@ -558,6 +558,18 @@ async function runOnCompute(script, timeout = 20000) {
   }
   return ssh(DGX_HOST, script, timeout);
 }
+
+async function resolveConfiguredVllmApiKey() {
+  if (VLLM_API_KEY || !CONTROLLER_PATHS.apiKey) return VLLM_API_KEY;
+  const encodedPath = Buffer.from(CONTROLLER_PATHS.apiKey, "utf8").toString("base64");
+  const result = await runOnCompute(String.raw`
+api_key_path=$(printf '%s' '${encodedPath}' | base64 -d)
+test -r "$api_key_path" && cat "$api_key_path"
+`, 7000);
+  return result.ok ? result.stdout.trim() : "";
+}
+
+VLLM_API_KEY = await resolveConfiguredVllmApiKey();
 
 async function collectSparkDoctorStatus() {
   if (!CONFIG.capabilities.sparkDoctorConfigured) {
@@ -1612,6 +1624,8 @@ function sanitizeLatencyInput(input, availableModels) {
 
   return {
     model,
+    modelKey: selectedModel.configuredModelKey || null,
+    modelLabel: selectedModel.configuredModelName || selectedModel.label || model,
     benchmarkType,
     profile,
     promptLabel: profile === "custom" ? "Custom coding prompt" : profiles[profile].label,
@@ -1797,6 +1811,8 @@ async function runLatencyBenchmark(config, res) {
       id: benchmarkId,
       createdAt: startedAt,
       model: config.model,
+      modelKey: config.modelKey,
+      modelLabel: config.modelLabel,
       benchmarkType: config.benchmarkType,
       promptLabel: config.promptLabel,
       profile: config.profile,

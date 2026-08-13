@@ -1726,6 +1726,97 @@ textarea:focus-visible {
   background: linear-gradient(145deg, rgba(10, 27, 35, 0.75), rgba(5, 12, 17, 0.62));
 }
 
+.saved-model-history {
+  margin-top: 0.85rem;
+  border: 1px solid rgba(118, 185, 95, 0.2);
+  border-radius: 8px;
+  padding: 0.9rem;
+  background: linear-gradient(145deg, rgba(14, 29, 18, 0.82), rgba(5, 12, 9, 0.68));
+}
+
+.saved-model-history h3 {
+  margin: 0.2rem 0 0;
+  color: #eaf8f4;
+  font-size: 1rem;
+}
+
+.saved-model-history > p {
+  margin: 0.8rem 0 0;
+  color: #819891;
+  font-size: 0.68rem;
+}
+
+.saved-model-history-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
+  gap: 0.55rem;
+}
+
+.saved-model-history-card {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+  border: 1px solid rgba(174, 196, 188, 0.12);
+  border-radius: 7px;
+  padding: 0.75rem;
+  background: rgba(3, 10, 7, 0.62);
+}
+
+.saved-model-history-card > span {
+  color: #8fa59e;
+  font-size: 0.7rem;
+}
+
+.saved-model-history-name {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.saved-model-history-name strong {
+  color: #dff4e9;
+  font-size: 0.84rem;
+  overflow-wrap: anywhere;
+}
+
+.saved-model-history-name .provider-mark {
+  flex: 0 0 auto;
+  width: 1.6rem;
+  height: 1.6rem;
+}
+
+.saved-model-history-name .provider-mark img {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.saved-model-history-card dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin: 0;
+}
+
+.saved-model-history-card dl > div {
+  display: grid;
+  gap: 0.08rem;
+  min-width: 0;
+}
+
+.saved-model-history-card dt {
+  color: #718880;
+  font-size: 0.64rem;
+  text-transform: uppercase;
+}
+
+.saved-model-history-card dd {
+  margin: 0;
+  color: #cfe5dc;
+  font-size: 0.74rem;
+  overflow-wrap: anywhere;
+}
+
 .benchmark-comparison-head {
   display: flex;
   align-items: flex-end;
@@ -1834,6 +1925,16 @@ textarea:focus-visible {
   color: #819891;
   font-size: 0.68rem;
   line-height: 1.35;
+}
+
+.benchmark-comparison-empty {
+  gap: 0.75rem;
+  align-content: center;
+  text-align: center;
+}
+
+.benchmark-comparison-empty button {
+  min-height: 2.35rem;
 }
 
 .benchmark-comparison-note {
