@@ -26,6 +26,7 @@ Use it on one computer, or run the dashboard separately from a remote NVIDIA com
 ## Contents
 
 - [Screenshots](#screenshots)
+- [Settings](#settings)
 - [Why This Project](#why-this-project)
 - [Features](#features)
 - [Deployment Options](#deployment-options)
@@ -126,6 +127,25 @@ When **Replace Primary** is selected, the controller:
 Applications can continue using one stable endpoint and alias while the underlying model changes. Model-specific recipes can define the runtime image, quantization, context and cache limits, tool and reasoning parsers, multimodal settings, and speculative-decoding configuration without hard-coding those choices into the dashboard.
 
 The controller also provides explicit **Start**, **Stop**, and **Restart** service actions. For safety, lifecycle control is read-only by default and must be enabled in the local configuration before remote model changes are allowed.
+
+### Settings
+
+Configure the most common installation options from the dashboard without editing JSON by hand. The Settings tab adapts to local, remote, read-only, benchmark, and full-control deployments while keeping privileged configuration outside the browser.
+
+#### What You Can Configure
+
+| Area | Settings |
+| --- | --- |
+| Identity | Dashboard title, sidebar brand, subtitle, logo URL or bundled image path, and accessible logo description |
+| Operating mode | Read-only monitoring, benchmark controls, or full model controls |
+| Dashboard service | Listen address and port when they are not managed by environment variables |
+| Compute connection | Friendly host label, local collection, or remote collection through an SSH host or alias |
+| Inference connection | OpenAI-compatible API base URL and an optional Prometheus-compatible metrics endpoint |
+| Optional integrations | PM2 process monitoring, an application-facing inference gateway, and separately installed Spark Doctor diagnostics |
+
+Settings managed by environment variables are displayed as read-only so the effective runtime configuration is clear. Saving writes only approved, non-secret values to the ignored local configuration file; restart the dashboard afterward so every server-side collector and listener uses the updated settings.
+
+Credentials, control tokens, SSH keys, model launch recipes, arbitrary commands, and trusted-network security exceptions cannot be edited in the browser. Manage those privileged values through environment variables or reviewed local configuration files. See [Configuration](#configuration) for precedence, advanced profiles, model catalogs, and security details.
 
 ## Why This Project
 
