@@ -1613,7 +1613,7 @@ function Header({ config, loading, running, onRefresh, onRunDoctor, updatedAt })
           <button className="primary" onClick={onRunDoctor} disabled={loading || running}>
             <Play size={16} />
             <span className="action-label-full">{running ? "Running..." : "Run Spark Doctor"}</span>
-            <span className="action-label-mobile">{running ? "Running" : "Doctor"}</span>
+            <span className="action-label-mobile">{running ? "Running" : "Spark Doctor"}</span>
           </button>
         )}
       </div>
