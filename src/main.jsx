@@ -1157,7 +1157,10 @@ function ModelBenchmarkComparison({
 }
 
 function SavedModelHistory({ history = [], catalogModels = [], benchmarkType = "coding" }) {
-  const models = useMemo(() => summarizeBenchmarkModels(history, benchmarkType), [benchmarkType, history]);
+  const models = useMemo(
+    () => summarizeBenchmarkModels(history, benchmarkType, catalogModels),
+    [benchmarkType, catalogModels, history],
+  );
   const presentation = useMemo(() => catalogModelPresentations(catalogModels), [catalogModels]);
   const totalRecords = models.reduce((total, model) => total + model.records, 0);
 
@@ -1218,7 +1221,12 @@ function LatencyLab() {
     const loadedHistory = historyData.runs || [];
     setCatalog(modelsData);
     setHistory(loadedHistory);
-    const initialView = initialCodingBenchmarkView(loadedHistory, modelsData.codingSuites);
+    const initialView = initialCodingBenchmarkView(
+      loadedHistory,
+      modelsData.codingSuites,
+      "standardCodingV1",
+      modelsData.catalogModels,
+    );
     setBenchmarkPlan(initialView.benchmarkPlan);
     if (initialView.profile) setProfile(initialView.profile);
     if (initialView.maxTokens) setMaxTokens(initialView.maxTokens);
@@ -1403,7 +1411,7 @@ function LatencyLab() {
   }
 
   function showSavedSingleHistory() {
-    const view = bestComparableSingleCodingView(history);
+    const view = bestComparableSingleCodingView(history, catalog.catalogModels);
     if (!view) return;
     setBenchmarkPlan(view.benchmarkPlan);
     setProfile(view.profile);

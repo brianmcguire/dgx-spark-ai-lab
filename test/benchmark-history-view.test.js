@@ -70,3 +70,50 @@ test("provider presentation resolves catalog keys, canonical ids, and served ali
   assert.equal(presentation.get("canonical-model"), nvidia);
   assert.equal(presentation.get("alias"), nvidia);
 });
+
+test("saved history merges legacy served names with newer catalog identities", () => {
+  const catalogModel = {
+    key: "nvidia-nemotron",
+    id: "nemotron-repository",
+    label: "Nemotron",
+    servedNames: ["application-alias", "nemotron-served"],
+  };
+  const history = [
+    {
+      model: "nemotron-served",
+      historyCategory: "coding",
+      profile: "standard",
+      maxTokens: 512,
+      parallel: 1,
+      createdAt: "2026-08-01T10:00:00Z",
+      summary: { completed: 1, failed: 0, avgGenerationTokensPerSecond: 50 },
+    },
+    {
+      model: "nemotron-served",
+      modelKey: "nvidia-nemotron",
+      modelLabel: "Nemotron",
+      historyCategory: "coding",
+      profile: "standard",
+      maxTokens: 512,
+      parallel: 1,
+      createdAt: "2026-08-02T10:00:00Z",
+      summary: { completed: 1, failed: 0, avgGenerationTokensPerSecond: 55 },
+    },
+  ];
+
+  assert.deepEqual(summarizeBenchmarkModels(history, "coding", [catalogModel]).map((item) => ({
+    key: item.key,
+    modelKey: item.modelKey,
+    label: item.modelLabel,
+    records: item.records,
+    latestAt: item.latestAt,
+    bestTps: item.bestTps,
+  })), [{
+    key: "nvidia-nemotron",
+    modelKey: "nvidia-nemotron",
+    label: "Nemotron",
+    records: 2,
+    latestAt: "2026-08-02T10:00:00Z",
+    bestTps: 55,
+  }]);
+});

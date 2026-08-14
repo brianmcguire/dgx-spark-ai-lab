@@ -34,8 +34,9 @@ export function latestSingleCodingView(history) {
   };
 }
 
-export function bestComparableSingleCodingView(history) {
+export function bestComparableSingleCodingView(history, catalogModels = []) {
   const groups = new Map();
+  const presentation = catalogModelPresentations(catalogModels);
 
   for (const entry of history || []) {
     const completed = Number(entry.summary?.completed || 0);
@@ -54,7 +55,8 @@ export function bestComparableSingleCodingView(history) {
       records: 0,
       latestAt: 0,
     };
-    current.models.add(entry.modelKey || entry.model);
+    const metadata = presentation.get(entry.modelKey) || presentation.get(entry.model);
+    current.models.add(metadata?.key || entry.modelKey || entry.model);
     current.records += 1;
     current.latestAt = Math.max(current.latestAt, new Date(entry.createdAt || entry.timestamp || 0).getTime() || 0);
     groups.set(key, current);
@@ -85,19 +87,21 @@ export function catalogModelPresentations(catalogModels = []) {
   return new Map(entries);
 }
 
-export function summarizeBenchmarkModels(history, benchmarkType = "coding") {
+export function summarizeBenchmarkModels(history, benchmarkType = "coding", catalogModels = []) {
   const grouped = new Map();
+  const presentation = catalogModelPresentations(catalogModels);
 
   for (const entry of history || []) {
     const category = entry.historyCategory || entry.benchmarkType || "coding";
     if (category !== benchmarkType || !entry.model) continue;
 
-    const key = entry.modelKey || entry.model;
+    const metadata = presentation.get(entry.modelKey) || presentation.get(entry.model);
+    const key = metadata?.key || entry.modelKey || entry.model;
     const current = grouped.get(key) || {
       key,
       model: entry.model,
-      modelKey: entry.modelKey || null,
-      modelLabel: entry.modelLabel || null,
+      modelKey: entry.modelKey || metadata?.key || null,
+      modelLabel: entry.modelLabel || metadata?.displayName || metadata?.label || null,
       records: 0,
       completed: 0,
       failed: 0,
@@ -118,6 +122,8 @@ export function summarizeBenchmarkModels(history, benchmarkType = "coding") {
     if (entry.suiteRunId) current.suiteRuns.add(entry.suiteRunId);
     if (createdAt && (!current.latestAt || new Date(createdAt) > new Date(current.latestAt))) current.latestAt = createdAt;
     if (Number.isFinite(tps) && tps > 0 && (!Number.isFinite(current.bestTps) || tps > current.bestTps)) current.bestTps = tps;
+    if (entry.modelKey) current.modelKey = entry.modelKey;
+    if (entry.modelLabel) current.modelLabel = entry.modelLabel;
     grouped.set(key, current);
   }
 
@@ -133,10 +139,10 @@ export function summarizeBenchmarkModels(history, benchmarkType = "coding") {
     });
 }
 
-export function initialCodingBenchmarkView(history, codingSuites, defaultSuiteId = "standardCodingV1") {
+export function initialCodingBenchmarkView(history, codingSuites, defaultSuiteId = "standardCodingV1", catalogModels = []) {
   if (hasCompleteSuite(history, defaultSuiteId, codingSuites?.[defaultSuiteId])) {
     return { benchmarkPlan: defaultSuiteId };
   }
 
-  return bestComparableSingleCodingView(history) || { benchmarkPlan: defaultSuiteId };
+  return bestComparableSingleCodingView(history, catalogModels) || { benchmarkPlan: defaultSuiteId };
 }
