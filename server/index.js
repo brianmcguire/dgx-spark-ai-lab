@@ -315,6 +315,32 @@ const BUILTIN_DGX_MODEL_CATALOG = [
     speculativeConfig: '{"method": "qwen3_5_mtp", "num_speculative_tokens": 1}',
   },
   {
+    key: "qwen38-27b-bf16",
+    label: "Qwen 3.8 27B BF16",
+    provider: "Qwen",
+    providerLogo: "qwen",
+    repository: "Qwen/Qwen3.8-27B",
+    cacheDirectory: "models--Qwen--Qwen3.8-27B",
+    servedNames: ["qwen3-14b", "qwen3.8-27b"],
+    precision: "BF16",
+    parameters: "27B dense",
+    architecture: "Gated DeltaNet hybrid transformer",
+    checkpointSize: "55.6 GB download",
+    bestFor: "Coding, research, professional work, and multimodal agents",
+    context: "65K configured · 262K native",
+    kvCache: "8 GB",
+    status: "staged",
+    modalities: "Text, image, video",
+    description: "Qwen's dense Qwen 3.8 model with flexible thinking control, native vision-language support, and strong long-horizon agent capabilities.",
+    runtime: "docker",
+    dockerImage: "vllm/vllm-openai:v0.27.1",
+    maxModelLen: 65536,
+    maxNumSeqs: 32,
+    startupTimeoutSeconds: 1500,
+    readinessProbe: "text",
+    dockerArgs: "--trust-remote-code --gpu-memory-utilization 0.60 --kv-cache-dtype fp8 --reasoning-parser qwen3 --enable-auto-tool-choice --tool-call-parser qwen3_coder --default-chat-template-kwargs '{\"enable_thinking\": false}'",
+  },
+  {
     key: "nvidia-qwen36-27b-nvfp4",
     label: "Qwen 3.6 27B NVFP4",
     provider: "NVIDIA",
@@ -414,7 +440,7 @@ const BUILTIN_DGX_MODEL_CATALOG = [
     dockerImage: "vllm/vllm-openai:v0.27.1",
     maxModelLen: 65536,
     startupTimeoutSeconds: 900,
-      dockerArgs: "--moe-backend marlin --kv-cache-dtype fp8 --enable-prefix-caching --speculative_config.model nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4-DSpark --speculative_config.num_speculative_tokens 3 --mamba-backend flashinfer --mamba-cache-mode align --reasoning-parser nemotron_v3 --enable-auto-tool-choice --tool-call-parser qwen3_coder",
+    dockerArgs: "--gpu-memory-utilization 0.60 --moe-backend marlin --kv-cache-dtype fp8 --enable-prefix-caching --speculative_config.model nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4-DSpark --speculative_config.num_speculative_tokens 3 --mamba-backend flashinfer --mamba-cache-mode align --reasoning-parser nemotron_v3 --enable-auto-tool-choice --tool-call-parser qwen3_coder",
   },
   {
     key: "poolside-laguna-xs-21-nvfp4",
@@ -479,6 +505,12 @@ const DEFAULT_LATENCY_THRESHOLDS = {
 
 const MODEL_LATENCY_THRESHOLDS = {
   "redhat-qwen36-35b-nvfp4": DEFAULT_LATENCY_THRESHOLDS,
+  "qwen38-27b-bf16": {
+    ttft: { good: 1, watch: 3 },
+    queue: { good: 0.15, watch: 0.75 },
+    e2e: { good: 12, watch: 35 },
+    interToken: { good: 0.1, watch: 0.25 },
+  },
   "nvidia-qwen36-27b-nvfp4": {
     ttft: { good: 0.75, watch: 2.5 },
     queue: { good: 0.1, watch: 0.5 },
@@ -1152,6 +1184,7 @@ fi
 docker rm -f ${MODEL_CONTAINER_NAME} >/dev/null 2>&1 || true
 exec docker run --rm --name ${MODEL_CONTAINER_NAME} --gpus all --network host --ipc=host \\
   -v ${CONTROLLER_HOME}/.cache/huggingface:/root/.cache/huggingface \\
+  -v ${CONTROLLER_HOME}/.cache/vllm:/root/.cache/vllm \\
   -v ${CONTROLLER_PATHS.media}:/media:ro \\
   ${model.dockerImage} ${model.repository} \\
   --served-model-name ${model.servedNames.join(" ")} \\

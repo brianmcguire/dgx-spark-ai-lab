@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## Unreleased
 
+### Added
+
+- Qwen 3.8 27B BF16 is available as a guarded DGX Spark model-controller recipe with text, image, and video capabilities.
+
+### Changed
+
+- Docker-backed model launches retain vLLM compilation caches between model switches and use explicit unified-memory reservations for the Qwen 3.8 and Nemotron 3.5 Lightning profiles.
+
 ## 1.2.1 - 2026-08-13
 
 ### Fixed
