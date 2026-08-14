@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { initialCodingBenchmarkView, summarizeBenchmarkModels } from "../src/benchmark-history.js";
+import { bestComparableSingleCodingView, catalogModelPresentations, initialCodingBenchmarkView, summarizeBenchmarkModels } from "../src/benchmark-history.js";
 
 const suite = { cases: [{ id: "a" }, { id: "b" }] };
 
@@ -45,4 +45,28 @@ test("saved model history remains visible independently of leaderboard filters",
     { key: "catalog-b", records: 1, completed: 1, configurations: 1, bestTps: 35 },
     { key: "model-a", records: 2, completed: 2, configurations: 2, bestTps: 50 },
   ]);
+});
+
+test("the default single-run comparison favors the configuration covering the most models", () => {
+  const history = [
+    { model: "model-a", historyCategory: "coding", profile: "quick", maxTokens: 128, parallel: 1, createdAt: "2026-08-04T10:00:00Z", summary: { completed: 1, failed: 0, avgGenerationTokensPerSecond: 50 } },
+    { model: "model-a", historyCategory: "coding", profile: "standard", maxTokens: 512, parallel: 1, createdAt: "2026-08-01T10:00:00Z", summary: { completed: 1, failed: 0, avgGenerationTokensPerSecond: 40 } },
+    { model: "model-b", historyCategory: "coding", profile: "standard", maxTokens: 512, parallel: 1, createdAt: "2026-08-02T10:00:00Z", summary: { completed: 1, failed: 0, avgGenerationTokensPerSecond: 45 } },
+  ];
+
+  assert.deepEqual(bestComparableSingleCodingView(history), {
+    benchmarkPlan: "single",
+    profile: "standard",
+    maxTokens: 512,
+    parallel: 1,
+  });
+});
+
+test("provider presentation resolves catalog keys, canonical ids, and served aliases", () => {
+  const nvidia = { key: "nvidia-model", id: "canonical-model", servedNames: ["alias", "canonical-model"], providerLogo: "nvidia" };
+  const presentation = catalogModelPresentations([nvidia]);
+
+  assert.equal(presentation.get("nvidia-model"), nvidia);
+  assert.equal(presentation.get("canonical-model"), nvidia);
+  assert.equal(presentation.get("alias"), nvidia);
 });

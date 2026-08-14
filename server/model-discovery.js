@@ -51,3 +51,34 @@ export function buildDiscoveredModels(cacheDirectories, knownModels = []) {
 
   return discovered.sort((left, right) => left.repository.localeCompare(right.repository));
 }
+
+export function buildCatalogModels(knownModels = [], liveModels = []) {
+  return knownModels.map((candidate) => {
+    const activeModel = liveModels.find((model) => (
+      model.configuredModelKey === candidate.key && !model.isApplicationAlias
+    ));
+    const state = activeModel
+      ? "active"
+      : candidate.status === "ready"
+        ? "ready"
+        : candidate.status === "staged"
+          ? "staged"
+          : "unavailable";
+    const id = activeModel?.id || candidate.servedNames?.at(-1) || candidate.key;
+
+    return {
+      key: candidate.key,
+      id,
+      servedNames: candidate.servedNames || [],
+      displayName: candidate.label,
+      provider: candidate.provider || null,
+      providerLogo: candidate.providerLogo || null,
+      label: `${candidate.label} - ${state === "active" ? "Active" : state === "ready" ? "Ready" : state === "staged" ? "Staged" : "Unavailable"}`,
+      state,
+      selectable: state === "active",
+      modalities: candidate.modalities || "Text",
+      visualCapable: /\b(?:image|video)\b/i.test(candidate.modalities || "Text"),
+      description: candidate.description,
+    };
+  });
+}

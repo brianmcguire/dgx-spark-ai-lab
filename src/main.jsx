@@ -22,7 +22,7 @@ import {
   Trash2,
   Zap,
 } from "lucide-react";
-import { initialCodingBenchmarkView, latestSingleCodingView, summarizeBenchmarkModels } from "./benchmark-history.js";
+import { bestComparableSingleCodingView, catalogModelPresentations, initialCodingBenchmarkView, summarizeBenchmarkModels } from "./benchmark-history.js";
 import "./styles.css";
 
 const number = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
@@ -1021,7 +1021,7 @@ function ModelBenchmarkComparison({
   parallel = 1,
   onShowSingleHistory,
 }) {
-  const modelPresentation = useMemo(() => new Map(catalogModels.map((model) => [model.id, model])), [catalogModels]);
+  const modelPresentation = useMemo(() => catalogModelPresentations(catalogModels), [catalogModels]);
   const selectedSuite = suiteId ? suites[suiteId] : null;
   const models = useMemo(() => {
     const grouped = new Map();
@@ -1158,13 +1158,7 @@ function ModelBenchmarkComparison({
 
 function SavedModelHistory({ history = [], catalogModels = [], benchmarkType = "coding" }) {
   const models = useMemo(() => summarizeBenchmarkModels(history, benchmarkType), [benchmarkType, history]);
-  const presentation = useMemo(() => {
-    const entries = [];
-    for (const model of catalogModels || []) {
-      entries.push([model.key, model], [model.id, model]);
-    }
-    return new Map(entries);
-  }, [catalogModels]);
+  const presentation = useMemo(() => catalogModelPresentations(catalogModels), [catalogModels]);
   const totalRecords = models.reduce((total, model) => total + model.records, 0);
 
   return (
@@ -1409,7 +1403,7 @@ function LatencyLab() {
   }
 
   function showSavedSingleHistory() {
-    const view = latestSingleCodingView(history);
+    const view = bestComparableSingleCodingView(history);
     if (!view) return;
     setBenchmarkPlan(view.benchmarkPlan);
     setProfile(view.profile);

@@ -7,7 +7,7 @@ import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
 import { loadConfig, loadModelCatalogDefinition, publicConfig } from "./config.js";
-import { buildDiscoveredModels } from "./model-discovery.js";
+import { buildCatalogModels, buildDiscoveredModels } from "./model-discovery.js";
 import { normalizeLatencyHistory, normalizeLatencyRecord } from "./latency-history.js";
 import { redactSensitiveData } from "./redaction.js";
 import { saveEditableSettings, settingsResponse } from "./settings.js";
@@ -1072,30 +1072,7 @@ async function fetchVllmModels() {
       };
     });
 
-    const catalogModels = DGX_MODEL_CATALOG.map((candidate) => {
-      const activeModel = modelsWithPresentation.find((model) => model.configuredModelKey === candidate.key && !model.isApplicationAlias);
-      const state = activeModel
-        ? "active"
-        : candidate.status === "ready"
-          ? "ready"
-          : candidate.status === "staged"
-            ? "staged"
-            : "unavailable";
-      const id = activeModel?.id || candidate.servedNames.at(-1);
-
-      return {
-        key: candidate.key,
-        id,
-        displayName: candidate.label,
-        providerLogo: candidate.providerLogo || null,
-        label: `${candidate.label} - ${state === "active" ? "Active" : state === "ready" ? "Ready" : state === "staged" ? "Staged" : "Unavailable"}`,
-        state,
-        selectable: state === "active",
-        modalities: candidate.modalities || "Text",
-        visualCapable: /\b(?:image|video)\b/i.test(candidate.modalities || "Text"),
-        description: candidate.description,
-      };
-    });
+    const catalogModels = buildCatalogModels(DGX_MODEL_CATALOG, modelsWithPresentation);
 
     return {
       ok: true,
@@ -1111,6 +1088,9 @@ async function fetchVllmModels() {
       endpoint: VLLM_API_URL,
       error: error.name === "AbortError" ? "vLLM model discovery timed out" : error.message,
       models: [],
+      selectableModels: [],
+      applicationAliases: [],
+      catalogModels: buildCatalogModels(DGX_MODEL_CATALOG),
     };
   } finally {
     clearTimeout(timeout);
