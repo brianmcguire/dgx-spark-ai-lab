@@ -197,6 +197,8 @@ npm start
 
 Open `http://127.0.0.1:4174`. The setup wizard creates an ignored local configuration file and defaults to read-only localhost access. After startup, use the **Settings** tab to adjust branding, host connections, inference endpoints, and optional integrations without editing JSON. Restart the dashboard after saving settings so every collector uses the new configuration.
 
+In the read-only starter profile, `npm run doctor` reports unreachable optional inference endpoints as warnings and still exits successfully. Benchmark and full-control profiles continue to fail the check when their required OpenAI-compatible endpoint is unavailable.
+
 ### Run as a Service
 
 ```bash

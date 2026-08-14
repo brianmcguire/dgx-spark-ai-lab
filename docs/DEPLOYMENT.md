@@ -12,6 +12,8 @@ npm start
 
 The default service listens only on `127.0.0.1:4174`.
 
+The environment doctor treats unavailable inference endpoints as warnings in the read-only starter profile. In benchmark and full-control profiles, the OpenAI-compatible models endpoint is required and an unavailable endpoint causes the doctor to exit with a failure.
+
 ## PM2
 
 ```bash

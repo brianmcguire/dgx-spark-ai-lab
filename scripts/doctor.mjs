@@ -27,12 +27,12 @@ async function resolveVllmApiKey() {
   }
 }
 
-async function httpCheck(label, url, headers = {}) {
+async function httpCheck(label, url, headers = {}, { required = true } = {}) {
   try {
     const response = await fetch(url, { headers, signal: AbortSignal.timeout(5000) });
-    checks.push({ label, ok: response.ok, detail: `${response.status} ${url}` });
+    checks.push({ label, ok: response.ok, required, detail: `${response.status} ${url}` });
   } catch (error) {
-    checks.push({ label, ok: false, detail: error.message });
+    checks.push({ label, ok: false, required, detail: error.message });
   }
 }
 
@@ -64,12 +64,13 @@ if (config.inference.apiUrl) {
   const headers = apiKey
     ? { Authorization: `Bearer ${apiKey}` }
     : {};
-  await httpCheck("OpenAI models endpoint", `${config.inference.apiUrl}/models`, headers);
+  const inferenceRequired = config.dashboard.mode === "benchmark" || config.dashboard.mode === "full";
+  await httpCheck("OpenAI models endpoint", `${config.inference.apiUrl}/models`, headers, { required: inferenceRequired });
 }
-if (config.inference.metricsUrl) await httpCheck("Inference metrics", config.inference.metricsUrl);
+if (config.inference.metricsUrl) await httpCheck("Inference metrics", config.inference.metricsUrl, {}, { required: false });
 if (config.services.gateway.enabled) await httpCheck("LLM gateway", `${config.services.gateway.apiUrl}/models`);
 
 for (const check of checks) {
-  console.log(`${check.ok ? "PASS" : "FAIL"}  ${check.label}: ${check.detail}`);
+  console.log(`${check.ok ? "PASS" : check.required === false ? "WARN" : "FAIL"}  ${check.label}: ${check.detail}`);
 }
-if (checks.some((check) => !check.ok)) process.exitCode = 1;
+if (checks.some((check) => !check.ok && check.required !== false)) process.exitCode = 1;
