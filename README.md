@@ -1,6 +1,6 @@
 <div align="center">
 
-# ⚡ Spark AI Lab ⚡
+# ⚡ DGX Spark AI Lab ⚡
 
 ### Open-source inference monitoring, model control, and repeatable benchmarks for NVIDIA DGX Spark and compatible Linux hosts
 
