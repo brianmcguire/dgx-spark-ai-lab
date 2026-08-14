@@ -34,6 +34,57 @@ export function latestSingleCodingView(history) {
   };
 }
 
+export function bestComparableSingleCodingView(history) {
+  const groups = new Map();
+
+  for (const entry of history || []) {
+    const completed = Number(entry.summary?.completed || 0);
+    const failed = Number(entry.summary?.failed || 0);
+    const tps = Number(entry.summary?.avgGenerationTokensPerSecond);
+    if (entry.historyCategory !== "coding" || entry.suiteId || !entry.profile
+      || Number(entry.maxTokens) <= 0 || Number(entry.parallel) <= 0
+      || !entry.model || completed <= 0 || failed > 0 || !Number.isFinite(tps) || tps <= 0) continue;
+
+    const key = `${entry.profile}:${Number(entry.maxTokens)}:${Number(entry.parallel)}`;
+    const current = groups.get(key) || {
+      profile: entry.profile,
+      maxTokens: Number(entry.maxTokens),
+      parallel: Number(entry.parallel),
+      models: new Set(),
+      records: 0,
+      latestAt: 0,
+    };
+    current.models.add(entry.modelKey || entry.model);
+    current.records += 1;
+    current.latestAt = Math.max(current.latestAt, new Date(entry.createdAt || entry.timestamp || 0).getTime() || 0);
+    groups.set(key, current);
+  }
+
+  const best = [...groups.values()].sort((left, right) => (
+    right.models.size - left.models.size
+    || right.records - left.records
+    || right.latestAt - left.latestAt
+  ))[0];
+  if (!best) return latestSingleCodingView(history);
+
+  return {
+    benchmarkPlan: "single",
+    profile: best.profile,
+    maxTokens: best.maxTokens,
+    parallel: best.parallel,
+  };
+}
+
+export function catalogModelPresentations(catalogModels = []) {
+  const entries = [];
+  for (const model of catalogModels || []) {
+    for (const identity of [model.key, model.id, ...(model.servedNames || [])]) {
+      if (identity) entries.push([identity, model]);
+    }
+  }
+  return new Map(entries);
+}
+
 export function summarizeBenchmarkModels(history, benchmarkType = "coding") {
   const grouped = new Map();
 
@@ -87,5 +138,5 @@ export function initialCodingBenchmarkView(history, codingSuites, defaultSuiteId
     return { benchmarkPlan: defaultSuiteId };
   }
 
-  return latestSingleCodingView(history) || { benchmarkPlan: defaultSuiteId };
+  return bestComparableSingleCodingView(history) || { benchmarkPlan: defaultSuiteId };
 }

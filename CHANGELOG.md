@@ -7,6 +7,7 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Fixed
 
 - Saved benchmark history is now inventoried independently of the selected comparison template, with a direct path from an empty suite leaderboard to compatible legacy single-scenario runs.
+- Single-scenario history now opens on the fair comparison covering the most models, and provider metadata remains available while the inference endpoint is offline so leaderboard logos still render.
 - New benchmark records retain their canonical catalog model identity, and remote profiles can resolve the configured vLLM API key after process-manager restarts.
 - The HTML app shell now disables browser caching so deployments cannot remain stuck on an obsolete JavaScript bundle; fingerprinted assets retain long-lived immutable caching.
 
