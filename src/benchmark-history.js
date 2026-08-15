@@ -105,6 +105,22 @@ export function inferenceConfigLabel(config, fallback = "Configuration not recor
   return parts.length ? parts.join(" · ") : fallback;
 }
 
+export function inferenceConfigKey(config) {
+  if (!config) return "configuration-not-recorded";
+  return JSON.stringify([
+    config.precision || null,
+    Number(config.contextTokens) || null,
+    config.kvCache || null,
+    Number(config.maxNumSeqs) || null,
+    config.speculativeDecoding?.method || null,
+    Number(config.speculativeDecoding?.draftTokens) || null,
+  ]);
+}
+
+export function benchmarkSeriesKey(entry = {}) {
+  return `${entry.model || "unknown-model"}:${inferenceConfigKey(entry.inferenceConfig)}`;
+}
+
 export function summarizeBenchmarkModels(history, benchmarkType = "coding", catalogModels = []) {
   const grouped = new Map();
   const presentation = catalogModelPresentations(catalogModels);

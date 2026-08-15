@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { bestComparableSingleCodingView, catalogModelPresentations, inferenceConfigLabel, initialCodingBenchmarkView, speculativeDecodingLabel, summarizeBenchmarkModels } from "../src/benchmark-history.js";
+import { benchmarkSeriesKey, bestComparableSingleCodingView, catalogModelPresentations, inferenceConfigLabel, initialCodingBenchmarkView, speculativeDecodingLabel, summarizeBenchmarkModels } from "../src/benchmark-history.js";
 
 const suite = { cases: [{ id: "a" }, { id: "b" }] };
 
@@ -138,4 +138,14 @@ test("benchmark presentation identifies MTP3 and preserves the latest model conf
   assert.equal(speculativeDecodingLabel(inferenceConfig), "MTP3");
   assert.match(inferenceConfigLabel(inferenceConfig), /MTP3/);
   assert.deepEqual(summarizeBenchmarkModels(history)[0].latestInferenceConfig, inferenceConfig);
+});
+
+test("the same checkpoint produces distinct benchmark series for MTP1 and MTP3", () => {
+  const base = { model: "qwen3.8-27b-nvfp4" };
+  const mtp1 = { ...base, inferenceConfig: { speculativeDecoding: { method: "MTP", draftTokens: 1 } } };
+  const mtp3 = { ...base, inferenceConfig: { speculativeDecoding: { method: "MTP", draftTokens: 3 } } };
+
+  assert.notEqual(benchmarkSeriesKey(mtp1), benchmarkSeriesKey(mtp3));
+  assert.match(benchmarkSeriesKey(mtp1), /MTP/);
+  assert.match(benchmarkSeriesKey(mtp3), /MTP/);
 });

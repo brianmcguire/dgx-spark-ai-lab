@@ -126,7 +126,7 @@ When **Replace Primary** is selected, the controller:
 
 Applications can continue using one stable endpoint and alias while the underlying model changes. Model-specific recipes can define the runtime image, quantization, context and cache limits, tool and reasoning parsers, multimodal settings, and speculative-decoding configuration without hard-coding those choices into the dashboard.
 
-The Benchmark Lab shows the active inference configuration before a run and saves a structured snapshot with every new result. This keeps details such as precision, context limit, KV-cache allocation, maximum concurrent sequences, and MTP depth attached to the benchmark even if the model recipe changes later. Older history remains readable and is labeled when its runtime configuration was not recorded.
+The Benchmark Lab shows the active inference configuration before a run and saves a structured snapshot with every new result. This keeps details such as precision, context limit, KV-cache allocation, maximum concurrent sequences, and MTP depth attached to the benchmark even if the model recipe changes later. Leaderboards treat the same checkpoint with different inference configurations as separate benchmark series—for example, `Qwen 3.8 27B NVFP4 · MTP1` and `Qwen 3.8 27B NVFP4 · MTP3`. Older history remains readable and is labeled when its runtime configuration was not recorded.
 
 The controller also provides explicit **Start**, **Stop**, and **Restart** service actions. For safety, lifecycle control is read-only by default and must be enabled in the local configuration before remote model changes are allowed.
 

@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import {
   bestComparableSingleCodingView,
+  benchmarkSeriesKey,
   catalogModelPresentations,
   inferenceConfigLabel,
   initialCodingBenchmarkView,
@@ -1034,14 +1035,23 @@ function ModelBenchmarkComparison({
   const selectedSuite = suiteId ? suites[suiteId] : null;
   const models = useMemo(() => {
     const grouped = new Map();
-    const addResult = (model, tps, ttft, caseCount = 1) => {
-      if (!model || !Number.isFinite(tps) || tps <= 0) return;
-      const current = grouped.get(model) || { model, tps: [], ttft: [], runs: 0, cases: 0 };
+    const addResult = (entry, tps, ttft, caseCount = 1) => {
+      if (!entry?.model || !Number.isFinite(tps) || tps <= 0) return;
+      const key = benchmarkSeriesKey(entry);
+      const current = grouped.get(key) || {
+        key,
+        model: entry.model,
+        inferenceConfig: entry.inferenceConfig || null,
+        tps: [],
+        ttft: [],
+        runs: 0,
+        cases: 0,
+      };
       current.tps.push(tps);
       if (Number.isFinite(ttft)) current.ttft.push(ttft);
       current.runs += 1;
       current.cases += caseCount;
-      grouped.set(model, current);
+      grouped.set(key, current);
     };
 
     if (selectedSuite) {
@@ -1072,7 +1082,7 @@ function ModelBenchmarkComparison({
         if (throughputs.some((value) => !Number.isFinite(value) || value <= 0)) continue;
         const ttfts = entries.map((entry) => Number(entry.summary?.avgTtftMs)).filter(Number.isFinite);
         addResult(
-          run.model,
+          entries[0],
           throughputs.reduce((total, value) => total + value, 0) / throughputs.length,
           ttfts.length ? ttfts.reduce((total, value) => total + value, 0) / ttfts.length : null,
           entries.length,
@@ -1085,7 +1095,7 @@ function ModelBenchmarkComparison({
         if (entry.profile !== profile || Number(entry.maxTokens) !== Number(maxTokens) || Number(entry.parallel) !== Number(parallel)) continue;
 
         addResult(
-          entry.model,
+          entry,
           Number(entry.summary?.avgGenerationTokensPerSecond),
           Number(entry.summary?.avgTtftMs),
         );
@@ -1132,9 +1142,11 @@ function ModelBenchmarkComparison({
           {models.map((item) => {
             const width = Math.max(5, (item.averageTps / maxTps) * 100);
             const presentation = modelPresentation.get(item.model);
-            const displayName = presentation?.displayName || item.model;
+            const baseDisplayName = presentation?.displayName || item.model;
+            const configurationName = speculativeDecodingLabel(item.inferenceConfig, null);
+            const displayName = configurationName ? `${baseDisplayName} · ${configurationName}` : baseDisplayName;
             return (
-              <div className="model-throughput-row" key={item.model}>
+              <div className="model-throughput-row" key={item.key}>
                 <div className="model-throughput-label" title={item.model}><ProviderMark providerLogo={presentation?.providerLogo} /><span>{displayName}</span></div>
                 <div className="model-throughput-track" aria-label={`${displayName}: ${formatRate(item.averageTps)} average generation throughput`}>
                   <div className="model-throughput-fill" style={{ width: `${width}%` }} />
