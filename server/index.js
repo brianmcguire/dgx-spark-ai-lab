@@ -7,7 +7,7 @@ import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
 import { loadConfig, loadModelCatalogDefinition, publicConfig } from "./config.js";
-import { buildCatalogModels, buildDiscoveredModels } from "./model-discovery.js";
+import { buildCatalogModels, buildDiscoveredModels, buildInferenceConfig } from "./model-discovery.js";
 import { normalizeLatencyHistory, normalizeLatencyRecord } from "./latency-history.js";
 import { redactSensitiveData } from "./redaction.js";
 import { saveEditableSettings, settingsResponse } from "./settings.js";
@@ -362,6 +362,7 @@ const BUILTIN_DGX_MODEL_CATALOG = [
     dockerImage: "vllm/vllm-openai:v0.27.1",
     maxModelLen: 65536,
     maxNumSeqs: 4,
+    speculativeDecoding: { method: "MTP", draftTokens: 3 },
     startupTimeoutSeconds: 1500,
     readinessProbe: "text",
     dockerArgs: "--trust-remote-code --gpu-memory-utilization 0.60 --kv-cache-dtype fp8 --reasoning-parser qwen3 --enable-auto-tool-choice --tool-call-parser qwen3_coder --default-chat-template-kwargs '{\"enable_thinking\": false}' --enable-prefix-caching --enable-chunked-prefill --speculative-config '{\"method\":\"mtp\",\"num_speculative_tokens\":3}'",
@@ -1128,6 +1129,7 @@ async function fetchVllmModels() {
         selectable: !isApplicationAlias,
         modalities,
         visualCapable: /\b(?:image|video)\b/i.test(modalities),
+        inferenceConfig: buildInferenceConfig(configuredModel),
         label: isApplicationAlias
           ? `Application alias: ${model.id}`
           : configuredModel
@@ -1461,6 +1463,8 @@ cat ${MODEL_LAUNCH_SCRIPT} 2>/dev/null || true
         bestFor: model.bestFor,
         context: model.context,
         kvCache: model.kvCache,
+        speculativeDecoding: model.speculativeDecoding || null,
+        inferenceConfig: buildInferenceConfig(model),
         status: verified ? "ready" : downloaded ? "staged" : "unavailable",
         description: model.description,
         installed: downloaded,
@@ -1672,6 +1676,7 @@ function sanitizeLatencyInput(input, availableModels) {
     model,
     modelKey: selectedModel.configuredModelKey || null,
     modelLabel: selectedModel.configuredModelName || selectedModel.label || model,
+    inferenceConfig: selectedModel.inferenceConfig || null,
     benchmarkType,
     profile,
     promptLabel: profile === "custom" ? "Custom coding prompt" : profiles[profile].label,
@@ -1859,6 +1864,7 @@ async function runLatencyBenchmark(config, res) {
       model: config.model,
       modelKey: config.modelKey,
       modelLabel: config.modelLabel,
+      inferenceConfig: config.inferenceConfig,
       benchmarkType: config.benchmarkType,
       promptLabel: config.promptLabel,
       profile: config.profile,
@@ -1872,7 +1878,7 @@ async function runLatencyBenchmark(config, res) {
       suiteCaseIndex: config.suiteCaseIndex,
       suiteCaseCount: config.suiteCaseCount,
       stopped: controller.signal.aborted,
-      historyVersion: 2,
+      historyVersion: 3,
       historyCategory: config.benchmarkType,
       summary,
       runs,

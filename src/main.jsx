@@ -22,7 +22,14 @@ import {
   Trash2,
   Zap,
 } from "lucide-react";
-import { bestComparableSingleCodingView, catalogModelPresentations, initialCodingBenchmarkView, summarizeBenchmarkModels } from "./benchmark-history.js";
+import {
+  bestComparableSingleCodingView,
+  catalogModelPresentations,
+  inferenceConfigLabel,
+  initialCodingBenchmarkView,
+  speculativeDecodingLabel,
+  summarizeBenchmarkModels,
+} from "./benchmark-history.js";
 import "./styles.css";
 
 const number = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
@@ -879,6 +886,7 @@ function ModelControlPanel() {
 
   const service = control?.service;
   const activeModel = control?.models?.find((model) => model.active);
+  const activeSpeculativeDecoding = speculativeDecodingLabel(activeModel?.inferenceConfig, null);
   const serviceReady = service?.state === "ready";
   const serviceOnline = service?.pm2Status === "online";
 
@@ -899,7 +907,7 @@ function ModelControlPanel() {
         <div>
           <span>Service</span>
           <strong>{service?.pm2Status || "checking"}</strong>
-          <small>{activeModel ? `${activeModel.provider} · ${activeModel.precision} · ${activeModel.context}` : "No model configuration selected"}</small>
+          <small>{activeModel ? `${activeModel.provider} · ${activeModel.precision} · ${activeModel.context}${activeSpeculativeDecoding ? ` · ${activeSpeculativeDecoding}` : ""}` : "No model configuration selected"}</small>
         </div>
         <div>
           <span>Aliases</span>
@@ -960,6 +968,7 @@ function ModelControlPanel() {
               <div><dt>Context</dt><dd>{model.context}</dd></div>
               <div><dt>Checkpoint size</dt><dd>{model.checkpointSize || "n/a"}</dd></div>
               <div><dt>KV cache</dt><dd>{model.kvCache}</dd></div>
+              {model.speculativeDecoding && <div><dt>Speculative decoding</dt><dd>{speculativeDecodingLabel(model.inferenceConfig)} · {model.speculativeDecoding.draftTokens} draft tokens</dd></div>}
               <div><dt>Checkpoint</dt><dd>{model.installed ? "downloaded" : "not found"}</dd></div>
               <div><dt>Inputs</dt><dd>{model.modalities}</dd></div>
               <div className="model-workload"><dt>Best for</dt><dd>{model.bestFor || "n/a"}</dd></div>
@@ -1185,6 +1194,7 @@ function SavedModelHistory({ history = [], catalogModels = [], benchmarkType = "
                 <dl>
                   <div><dt>Saved records</dt><dd>{item.records}</dd></div>
                   <div><dt>Configurations</dt><dd>{item.configurations}</dd></div>
+                  <div><dt>Latest inference</dt><dd>{speculativeDecodingLabel(item.latestInferenceConfig)}</dd></div>
                   <div><dt>Best generation</dt><dd>{item.bestTps ? formatRate(item.bestTps) : "n/a"}</dd></div>
                   <div><dt>Latest run</dt><dd>{item.latestAt ? `${formatDate(item.latestAt)} · ${formatTimeLabel(item.latestAt)}` : "n/a"}</dd></div>
                 </dl>
@@ -1429,6 +1439,7 @@ function LatencyLab() {
   const visibleModels = catalog.catalogModels?.length ? catalog.catalogModels : catalog.models || [];
   const selectableModels = visibleModels.filter((item) => item.selectable);
   const selectedModel = visibleModels.find((item) => item.id === model);
+  const selectedInferenceConfig = selectedModel?.inferenceConfig || null;
   const visualModelReady = benchmarkType !== "visual" || selectedModel?.visualCapable;
   const isReady = selectableModels.length && model && visualModelReady;
   const stagedModels = visibleModels.filter((item) => item.state === "staged");
@@ -1514,6 +1525,16 @@ function LatencyLab() {
         </div>
       </div>
 
+      {selectedModel && (
+        <div className="benchmark-runtime-config">
+          <div>
+            <span>Recorded inference configuration</span>
+            <strong>{inferenceConfigLabel(selectedInferenceConfig)}</strong>
+          </div>
+          <small>This configuration is saved with every new benchmark result.</small>
+        </div>
+      )}
+
       {!selectedSuite && profile !== "custom" && profileOptions.find(([id]) => id === profile)?.[1] && <div className="benchmark-hint">{profileOptions.find(([id]) => id === profile)?.[1].detail}</div>}
       {!selectedSuite && profile === "custom" && (
         <label className="custom-prompt">
@@ -1571,10 +1592,10 @@ function LatencyLab() {
         <div className="benchmark-history-head"><strong>Recent {benchmarkType === "visual" ? "visual analysis" : "coding"} benchmark runs</strong><span>{catalog.endpoint || "vLLM endpoint"}</span></div>
         {relevantHistory.length ? (
           <div className="benchmark-history-table">
-            <div className="benchmark-history-row head"><span>Time</span><span>Model</span><span>Task</span><span>TTFT</span><span>Prefill</span><span>TPS</span><span>E2E</span></div>
+            <div className="benchmark-history-row head"><span>Time</span><span>Model</span><span>Configuration</span><span>Task</span><span>TTFT</span><span>Prefill</span><span>TPS</span><span>E2E</span></div>
             {relevantHistory.slice(0, 10).map((entry) => (
               <div className="benchmark-history-row" key={entry.id}>
-                <span>{formatTimeLabel(entry.createdAt)}</span><span className="truncate" title={entry.model}>{entry.model}</span><span>{entry.suiteCaseLabel || entry.promptLabel}{entry.parallel > 1 && !entry.suiteCaseLabel ? ` · ${entry.parallel}×` : ""}</span><span>{formatProbeMs(entry.summary?.avgTtftMs)}</span><span>{entry.summary?.totalPromptTokens != null ? formatLargeNumber(entry.summary.totalPromptTokens) : "n/a"}</span><span>{entry.summary?.avgGenerationTokensPerSecond ? formatRate(entry.summary.avgGenerationTokensPerSecond) : "n/a"}</span><span>{formatProbeMs(entry.summary?.avgEndToEndMs)}</span>
+                <span>{formatTimeLabel(entry.createdAt)}</span><span className="truncate" title={entry.model}>{entry.model}</span><span title={inferenceConfigLabel(entry.inferenceConfig)}>{speculativeDecodingLabel(entry.inferenceConfig)}</span><span>{entry.suiteCaseLabel || entry.promptLabel}{entry.parallel > 1 && !entry.suiteCaseLabel ? ` · ${entry.parallel}×` : ""}</span><span>{formatProbeMs(entry.summary?.avgTtftMs)}</span><span>{entry.summary?.totalPromptTokens != null ? formatLargeNumber(entry.summary.totalPromptTokens) : "n/a"}</span><span>{entry.summary?.avgGenerationTokensPerSecond ? formatRate(entry.summary.avgGenerationTokensPerSecond) : "n/a"}</span><span>{formatProbeMs(entry.summary?.avgEndToEndMs)}</span>
               </div>
             ))}
           </div>

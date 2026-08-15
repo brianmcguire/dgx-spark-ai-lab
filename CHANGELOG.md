@@ -12,6 +12,7 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Changed
 
 - Docker-backed model launches retain vLLM compilation caches between model switches and use explicit unified-memory reservations for the Qwen 3.8 and Nemotron 3.5 Lightning profiles.
+- Model Controller and Benchmark Lab metadata now identify Qwen 3.8 NVFP4's MTP3 configuration, and new benchmark records preserve the complete inference configuration used for each result.
 
 ## 1.2.1 - 2026-08-13
 

@@ -87,6 +87,24 @@ export function catalogModelPresentations(catalogModels = []) {
   return new Map(entries);
 }
 
+export function speculativeDecodingLabel(config, fallback = "Not recorded") {
+  const speculative = config?.speculativeDecoding;
+  if (!speculative?.method || !Number.isFinite(Number(speculative.draftTokens))) return fallback;
+  return `${String(speculative.method).toUpperCase()}${Number(speculative.draftTokens)}`;
+}
+
+export function inferenceConfigLabel(config, fallback = "Configuration not recorded") {
+  if (!config) return fallback;
+  const parts = [
+    config.precision,
+    Number(config.contextTokens) > 0 ? `${Number(config.contextTokens).toLocaleString()} context` : null,
+    config.kvCache ? `${config.kvCache} KV cache` : null,
+    Number(config.maxNumSeqs) > 0 ? `${Number(config.maxNumSeqs)} max streams` : null,
+    speculativeDecodingLabel(config, null),
+  ].filter(Boolean);
+  return parts.length ? parts.join(" · ") : fallback;
+}
+
 export function summarizeBenchmarkModels(history, benchmarkType = "coding", catalogModels = []) {
   const grouped = new Map();
   const presentation = catalogModelPresentations(catalogModels);
@@ -108,6 +126,7 @@ export function summarizeBenchmarkModels(history, benchmarkType = "coding", cata
       configurations: new Set(),
       suiteRuns: new Set(),
       latestAt: null,
+      latestInferenceConfig: null,
       bestTps: null,
     };
     const completed = Number(entry.summary?.completed || 0);
@@ -120,7 +139,10 @@ export function summarizeBenchmarkModels(history, benchmarkType = "coding", cata
     if (failed > 0 || completed !== Number(entry.parallel || 1)) current.failed += 1;
     current.configurations.add(entry.suiteId || `${entry.profile || "unknown"}:${entry.maxTokens || 0}:${entry.parallel || 1}`);
     if (entry.suiteRunId) current.suiteRuns.add(entry.suiteRunId);
-    if (createdAt && (!current.latestAt || new Date(createdAt) > new Date(current.latestAt))) current.latestAt = createdAt;
+    if (createdAt && (!current.latestAt || new Date(createdAt) > new Date(current.latestAt))) {
+      current.latestAt = createdAt;
+      current.latestInferenceConfig = entry.inferenceConfig || null;
+    }
     if (Number.isFinite(tps) && tps > 0 && (!Number.isFinite(current.bestTps) || tps > current.bestTps)) current.bestTps = tps;
     if (entry.modelKey) current.modelKey = entry.modelKey;
     if (entry.modelLabel) current.modelLabel = entry.modelLabel;

@@ -5,6 +5,23 @@ function finiteNumber(value, fallback = null) {
   return Number.isFinite(number) ? number : fallback;
 }
 
+function normalizeInferenceConfig(config) {
+  if (!config || typeof config !== "object" || Array.isArray(config)) return null;
+  const speculative = config.speculativeDecoding && typeof config.speculativeDecoding === "object"
+    ? {
+      method: typeof config.speculativeDecoding.method === "string" ? config.speculativeDecoding.method : null,
+      draftTokens: finiteNumber(config.speculativeDecoding.draftTokens),
+    }
+    : null;
+  return {
+    precision: typeof config.precision === "string" ? config.precision : null,
+    contextTokens: finiteNumber(config.contextTokens),
+    maxNumSeqs: finiteNumber(config.maxNumSeqs),
+    kvCache: typeof config.kvCache === "string" ? config.kvCache : null,
+    speculativeDecoding: speculative?.method && speculative?.draftTokens > 0 ? speculative : null,
+  };
+}
+
 export function normalizeLatencyRecord(record, { modelAliases = new Map() } = {}) {
   if (!record || typeof record !== "object" || Array.isArray(record)) return null;
 
@@ -22,8 +39,9 @@ export function normalizeLatencyRecord(record, { modelAliases = new Map() } = {}
     model,
     benchmarkType,
     historyCategory: benchmarkType,
-    historyVersion: 2,
-    legacy: record.historyVersion !== 2,
+    historyVersion: 3,
+    legacy: ![2, 3].includes(record.historyVersion),
+    inferenceConfig: normalizeInferenceConfig(record.inferenceConfig),
     suiteId,
     suiteRunId: suiteId && typeof record.suiteRunId === "string" ? record.suiteRunId : null,
     suiteCaseId: suiteId && typeof record.suiteCaseId === "string" ? record.suiteCaseId : null,

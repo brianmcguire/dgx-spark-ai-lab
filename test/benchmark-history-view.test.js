@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { bestComparableSingleCodingView, catalogModelPresentations, initialCodingBenchmarkView, summarizeBenchmarkModels } from "../src/benchmark-history.js";
+import { bestComparableSingleCodingView, catalogModelPresentations, inferenceConfigLabel, initialCodingBenchmarkView, speculativeDecodingLabel, summarizeBenchmarkModels } from "../src/benchmark-history.js";
 
 const suite = { cases: [{ id: "a" }, { id: "b" }] };
 
@@ -116,4 +116,26 @@ test("saved history merges legacy served names with newer catalog identities", (
     latestAt: "2026-08-02T10:00:00Z",
     bestTps: 55,
   }]);
+});
+
+test("benchmark presentation identifies MTP3 and preserves the latest model configuration", () => {
+  const inferenceConfig = {
+    precision: "NVFP4 / FP8 mixed",
+    contextTokens: 65536,
+    maxNumSeqs: 4,
+    kvCache: "8 GB FP8",
+    speculativeDecoding: { method: "MTP", draftTokens: 3 },
+  };
+  const history = [{
+    model: "qwen3.8-27b-nvfp4",
+    historyCategory: "coding",
+    createdAt: "2026-08-15T12:00:00Z",
+    parallel: 1,
+    inferenceConfig,
+    summary: { completed: 1, failed: 0, avgGenerationTokensPerSecond: 30 },
+  }];
+
+  assert.equal(speculativeDecodingLabel(inferenceConfig), "MTP3");
+  assert.match(inferenceConfigLabel(inferenceConfig), /MTP3/);
+  assert.deepEqual(summarizeBenchmarkModels(history)[0].latestInferenceConfig, inferenceConfig);
 });

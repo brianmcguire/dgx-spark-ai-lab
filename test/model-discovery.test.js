@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildCatalogModels, buildDiscoveredModels, repositoryFromCacheDirectory } from "../server/model-discovery.js";
+import { buildCatalogModels, buildDiscoveredModels, buildInferenceConfig, repositoryFromCacheDirectory } from "../server/model-discovery.js";
 
 test("converts Hugging Face cache directories into repositories", () => {
   assert.equal(repositoryFromCacheDirectory("models--nvidia--Example-Model"), "nvidia/Example-Model");
@@ -44,5 +44,28 @@ test("catalog metadata remains available while live model discovery is offline",
     modalities: "Text",
     visualCapable: false,
     description: undefined,
+    precision: null,
+    context: null,
+    kvCache: null,
+    speculativeDecoding: null,
+    inferenceConfig: null,
+  });
+});
+
+test("catalog metadata exposes a structured speculative decoding configuration", () => {
+  const model = {
+    precision: "NVFP4 / FP8 mixed",
+    maxModelLen: 65536,
+    maxNumSeqs: 4,
+    kvCache: "8 GB FP8",
+    speculativeDecoding: { method: "MTP", draftTokens: 3 },
+  };
+
+  assert.deepEqual(buildInferenceConfig(model), {
+    precision: "NVFP4 / FP8 mixed",
+    contextTokens: 65536,
+    maxNumSeqs: 4,
+    kvCache: "8 GB FP8",
+    speculativeDecoding: { method: "MTP", draftTokens: 3 },
   });
 });

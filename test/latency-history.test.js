@@ -35,3 +35,29 @@ test("history normalization removes duplicate persisted records without dropping
   ]);
   assert.deepEqual(records.map(({ id }) => id), ["same", "other"]);
 });
+
+test("new benchmark records retain their inference configuration snapshot", () => {
+  const record = normalizeLatencyRecord({
+    id: "mtp3-run",
+    historyVersion: 3,
+    model: "qwen3.8-27b-nvfp4",
+    inferenceConfig: {
+      precision: "NVFP4 / FP8 mixed",
+      contextTokens: 65536,
+      maxNumSeqs: 4,
+      kvCache: "8 GB FP8",
+      speculativeDecoding: { method: "MTP", draftTokens: 3 },
+    },
+  });
+
+  assert.equal(record.historyVersion, 3);
+  assert.equal(record.legacy, false);
+  assert.deepEqual(record.inferenceConfig.speculativeDecoding, { method: "MTP", draftTokens: 3 });
+});
+
+test("version two records stay supported when inference configuration was not recorded", () => {
+  const record = normalizeLatencyRecord({ id: "v2-run", historyVersion: 2, model: "older-model" });
+  assert.equal(record.historyVersion, 3);
+  assert.equal(record.legacy, false);
+  assert.equal(record.inferenceConfig, null);
+});

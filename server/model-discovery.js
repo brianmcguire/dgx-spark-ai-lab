@@ -4,6 +4,25 @@ function humanize(value) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+export function buildInferenceConfig(model = {}) {
+  const speculative = model.speculativeDecoding && typeof model.speculativeDecoding === "object"
+    ? {
+      method: String(model.speculativeDecoding.method || "").trim() || null,
+      draftTokens: Number.isFinite(Number(model.speculativeDecoding.draftTokens))
+        ? Number(model.speculativeDecoding.draftTokens)
+        : null,
+    }
+    : null;
+  const config = {
+    precision: model.precision || null,
+    contextTokens: Number.isFinite(Number(model.maxModelLen)) ? Number(model.maxModelLen) : null,
+    maxNumSeqs: Number.isFinite(Number(model.maxNumSeqs)) ? Number(model.maxNumSeqs) : null,
+    kvCache: model.kvCache || null,
+    speculativeDecoding: speculative?.method && speculative?.draftTokens > 0 ? speculative : null,
+  };
+  return Object.values(config).some((value) => value != null) ? config : null;
+}
+
 export function repositoryFromCacheDirectory(cacheDirectory) {
   if (!String(cacheDirectory || "").startsWith("models--")) return null;
   const parts = cacheDirectory.slice("models--".length).split("--").filter(Boolean);
@@ -79,6 +98,11 @@ export function buildCatalogModels(knownModels = [], liveModels = []) {
       modalities: candidate.modalities || "Text",
       visualCapable: /\b(?:image|video)\b/i.test(candidate.modalities || "Text"),
       description: candidate.description,
+      precision: candidate.precision || null,
+      context: candidate.context || null,
+      kvCache: candidate.kvCache || null,
+      speculativeDecoding: candidate.speculativeDecoding || null,
+      inferenceConfig: buildInferenceConfig(candidate),
     };
   });
 }

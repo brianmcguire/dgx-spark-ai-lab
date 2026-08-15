@@ -1535,6 +1535,44 @@ textarea:focus-visible {
   color: #e3b7ba;
 }
 
+.benchmark-runtime-config {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.7rem;
+  padding: 0.72rem 0.85rem;
+  border: 1px solid rgba(141, 207, 94, 0.2);
+  border-radius: 7px;
+  background: rgba(20, 39, 11, 0.34);
+}
+
+.benchmark-runtime-config > div {
+  display: grid;
+  gap: 0.16rem;
+  min-width: 0;
+}
+
+.benchmark-runtime-config span {
+  color: #9db0aa;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.benchmark-runtime-config strong {
+  color: #dff0d5;
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
+.benchmark-runtime-config small {
+  flex: 0 0 auto;
+  color: #8ca29a;
+  font-size: 0.7rem;
+  text-align: right;
+}
+
 .benchmark-hint {
   margin-top: 0.7rem;
   color: #a6c2ce;
@@ -1967,7 +2005,7 @@ textarea:focus-visible {
 
 .benchmark-history-row {
   display: grid;
-  grid-template-columns: 5.4rem minmax(9rem, 1.45fr) minmax(8rem, 1.1fr) 5rem 5.8rem 6.5rem 5.2rem;
+  grid-template-columns: 5.4rem minmax(9rem, 1.35fr) 6rem minmax(8rem, 1.1fr) 5rem 5.8rem 6.5rem 5.2rem;
   gap: 0.6rem;
   align-items: center;
   min-height: 2.45rem;
@@ -2999,7 +3037,16 @@ textarea:focus-visible {
   }
 
   .benchmark-history-row {
-    min-width: 48rem;
+    min-width: 55rem;
+  }
+
+  .benchmark-runtime-config {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .benchmark-runtime-config small {
+    text-align: left;
   }
 
   .model-throughput-row {

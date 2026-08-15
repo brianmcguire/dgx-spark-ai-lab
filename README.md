@@ -103,7 +103,7 @@ Review available models, confirm readiness, and replace the active primary model
 
 #### Model Inventory and Lifecycle
 
-The controller combines reviewed model recipes with optional Hugging Face cache discovery. Each model card identifies its provider, total and active parameters, architecture, quantization format, context limit, checkpoint size, KV-cache allocation, supported inputs, and recommended workload.
+The controller combines reviewed model recipes with optional Hugging Face cache discovery. Each model card identifies its provider, total and active parameters, architecture, quantization format, context limit, checkpoint size, KV-cache allocation, supported inputs, recommended workload, and configured speculative-decoding method when applicable. For example, the Qwen 3.8 27B NVFP4 profile reports **MTP3** with three draft tokens.
 
 | State | Meaning |
 | --- | --- |
@@ -125,6 +125,8 @@ When **Replace Primary** is selected, the controller:
 6. Marks the candidate active only after validation succeeds, or automatically restores the prior model if startup or validation fails.
 
 Applications can continue using one stable endpoint and alias while the underlying model changes. Model-specific recipes can define the runtime image, quantization, context and cache limits, tool and reasoning parsers, multimodal settings, and speculative-decoding configuration without hard-coding those choices into the dashboard.
+
+The Benchmark Lab shows the active inference configuration before a run and saves a structured snapshot with every new result. This keeps details such as precision, context limit, KV-cache allocation, maximum concurrent sequences, and MTP depth attached to the benchmark even if the model recipe changes later. Older history remains readable and is labeled when its runtime configuration was not recorded.
 
 The controller also provides explicit **Start**, **Stop**, and **Restart** service actions. For safety, lifecycle control is read-only by default and must be enabled in the local configuration before remote model changes are allowed.
 

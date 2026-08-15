@@ -26,8 +26,13 @@
       "runtime": "docker",
       "dockerImage": "vllm/vllm-openai:latest",
       "maxModelLen": 65536,
+      "maxNumSeqs": 4,
+      "speculativeDecoding": {
+        "method": "MTP",
+        "draftTokens": 3
+      },
       "startupTimeoutSeconds": 900,
-      "dockerArgs": "--trust-remote-code"
+      "dockerArgs": "--trust-remote-code --speculative-config '{\"method\":\"mtp\",\"num_speculative_tokens\":3}'"
     }
   ]
 }
