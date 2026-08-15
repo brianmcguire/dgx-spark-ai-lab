@@ -364,7 +364,7 @@ const BUILTIN_DGX_MODEL_CATALOG = [
     maxNumSeqs: 4,
     startupTimeoutSeconds: 1500,
     readinessProbe: "text",
-    dockerArgs: "--trust-remote-code --gpu-memory-utilization 0.60 --kv-cache-dtype fp8 --reasoning-parser qwen3 --enable-auto-tool-choice --tool-call-parser qwen3_coder --default-chat-template-kwargs '{\"enable_thinking\": false}' --enable-prefix-caching --enable-chunked-prefill --speculative-config '{\"method\":\"mtp\",\"num_speculative_tokens\":1}'",
+    dockerArgs: "--trust-remote-code --gpu-memory-utilization 0.60 --kv-cache-dtype fp8 --reasoning-parser qwen3 --enable-auto-tool-choice --tool-call-parser qwen3_coder --default-chat-template-kwargs '{\"enable_thinking\": false}' --enable-prefix-caching --enable-chunked-prefill --speculative-config '{\"method\":\"mtp\",\"num_speculative_tokens\":3}'",
   },
   {
     key: "nvidia-qwen36-27b-nvfp4",

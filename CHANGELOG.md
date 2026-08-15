@@ -7,7 +7,7 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Added
 
 - Qwen 3.8 27B BF16 is available as a guarded DGX Spark model-controller recipe with text, image, and video capabilities.
-- Qwen 3.8 27B NVFP4 is available as a separate Unsloth mixed-precision recipe tuned for lower DGX Spark memory and bandwidth pressure, with MTP acceleration and a conservative four-sequence limit.
+- Qwen 3.8 27B NVFP4 is available as a separate Unsloth mixed-precision recipe tuned for lower DGX Spark memory and bandwidth pressure, with three-token MTP speculative decoding and a conservative four-sequence limit.
 
 ### Changed
 
