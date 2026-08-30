@@ -5,6 +5,16 @@
     "includeUnknown": true
   },
   "initialPrimary": null,
+  "historyModels": [
+    {
+      "key": "retired-model-nvfp4",
+      "id": "retired-model-nvfp4",
+      "servedNames": ["retired-model-nvfp4"],
+      "displayName": "Retired Model NVFP4",
+      "provider": "My Organization",
+      "providerLogo": "my-organization"
+    }
+  ],
   "models": [
     {
       "key": "my-model-nvfp4",

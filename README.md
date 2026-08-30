@@ -93,7 +93,7 @@ For targeted testing, **Single Scenario** mode also includes structured JSON and
 - **Image extraction:** object counts, colors, shapes, positions, and strict JSON output.
 - **Visual reasoning:** spatial relationships, relative positions, and grounded scene summaries.
 
-Every run records time to first token (TTFT), prefill tokens, generation TPS, end-to-end latency, output tokens, completion status, and streamed model output. Saved leaderboards rank complete fixed-suite runs, keeping prompts, token budgets, and concurrency settings consistent across models.
+Every run records time to first token (TTFT), prefill tokens, generation TPS, end-to-end latency, output tokens, completion status, streamed model output, and a safe snapshot of the model's display name and provider icon. Saved leaderboards rank complete fixed-suite runs, keeping prompts, token budgets, and concurrency settings consistent across models. Benchmark records and icons remain available when a checkpoint is removed from disk. See [Benchmark and icon retention](docs/BENCHMARK_RETENTION.md).
 
 ### Model Controller
 

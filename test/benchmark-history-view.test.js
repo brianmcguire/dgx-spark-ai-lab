@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { benchmarkSeriesKey, bestComparableSingleCodingView, catalogModelPresentations, inferenceConfigLabel, initialCodingBenchmarkView, speculativeDecodingLabel, summarizeBenchmarkModels } from "../src/benchmark-history.js";
+import { benchmarkPresentationModels, benchmarkSeriesKey, bestComparableSingleCodingView, catalogModelPresentations, inferenceConfigLabel, initialCodingBenchmarkView, speculativeDecodingLabel, summarizeBenchmarkModels } from "../src/benchmark-history.js";
 
 const suite = { cases: [{ id: "a" }, { id: "b" }] };
 
@@ -69,6 +69,24 @@ test("provider presentation resolves catalog keys, canonical ids, and served ali
   assert.equal(presentation.get("nvidia-model"), nvidia);
   assert.equal(presentation.get("canonical-model"), nvidia);
   assert.equal(presentation.get("alias"), nvidia);
+});
+
+test("archived and snapshotted model presentation survives catalog deletion", () => {
+  const history = [{
+    model: "retired-model-served",
+    modelPresentation: {
+      key: "retired-model",
+      id: "retired-model-served",
+      servedNames: ["retired-model-served"],
+      displayName: "Retired Model",
+      providerLogo: "poolside",
+    },
+  }];
+  const presentationModels = benchmarkPresentationModels(history, [], []);
+  const presentation = catalogModelPresentations(presentationModels);
+
+  assert.equal(presentation.get("retired-model-served").displayName, "Retired Model");
+  assert.equal(presentation.get("retired-model-served").providerLogo, "poolside");
 });
 
 test("saved history merges legacy served names with newer catalog identities", () => {

@@ -87,6 +87,23 @@ export function catalogModelPresentations(catalogModels = []) {
   return new Map(entries);
 }
 
+export function benchmarkPresentationModels(history = [], catalogModels = [], historyModels = []) {
+  const presentations = [];
+  const seen = new Set();
+  const add = (model) => {
+    if (!model || typeof model !== "object") return;
+    const key = model.key || model.modelKey || model.id;
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    presentations.push(model);
+  };
+
+  for (const model of catalogModels || []) add(model);
+  for (const model of historyModels || []) add(model);
+  for (const entry of history || []) add(entry.modelPresentation);
+  return presentations;
+}
+
 export function speculativeDecodingLabel(config, fallback = "Not recorded") {
   const speculative = config?.speculativeDecoding;
   if (!speculative?.method || !Number.isFinite(Number(speculative.draftTokens))) return fallback;

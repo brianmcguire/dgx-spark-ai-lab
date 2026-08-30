@@ -8,12 +8,15 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - Qwen 3.8 27B BF16 is available as a guarded DGX Spark model-controller recipe with text, image, and video capabilities.
 - Qwen 3.8 27B NVFP4 is available as a separate Unsloth mixed-precision recipe tuned for lower DGX Spark memory and bandwidth pressure, with three-token MTP speculative decoding and a conservative four-sequence limit.
+- Benchmark records now save safe model-presentation snapshots, and `historyModels` supplies names and icons for older records after a checkpoint is deleted.
+- A checksum manifest and retention test protect bundled provider-logo assets that saved benchmark history still uses.
 
 ### Changed
 
 - Docker-backed model launches retain vLLM compilation caches between model switches and use explicit unified-memory reservations for the Qwen 3.8 and Nemotron 3.5 Lightning profiles.
 - Model Controller and Benchmark Lab metadata now identify Qwen 3.8 NVFP4's MTP3 configuration, and new benchmark records preserve the complete inference configuration used for each result.
 - Benchmark leaderboards separate different inference configurations of the same checkpoint into distinct comparison rows instead of averaging MTP1 and MTP3 results together.
+- Empty replacement catalogs now remove every built-in controller recipe while leaving history-only model metadata available to the benchmark views.
 
 ## 1.2.1 - 2026-08-13
 

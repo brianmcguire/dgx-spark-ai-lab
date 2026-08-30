@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { normalizeHistoryModels } from "./history-models.js";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 
@@ -151,10 +152,10 @@ export async function loadModelCatalogDefinition(builtInModels = []) {
   const catalog = await readJson(configuredPath);
   const customModels = Array.isArray(catalog) ? catalog : catalog.models;
   let models = builtInModels;
-  if (Array.isArray(customModels) && customModels.length > 0) {
+  if (Array.isArray(customModels)) {
     if (catalog.mode === "replace") {
       models = customModels;
-    } else {
+    } else if (customModels.length > 0) {
       const byKey = new Map(builtInModels.map((model) => [model.key, model]));
       customModels.forEach((model) => byKey.set(model.key, merge(byKey.get(model.key) || {}, model)));
       models = [...byKey.values()];
@@ -166,6 +167,7 @@ export async function loadModelCatalogDefinition(builtInModels = []) {
 
   return {
     models,
+    historyModels: normalizeHistoryModels(catalog.historyModels || catalog.archivedModels),
     discovery: {
       enabled: Boolean(catalog.discovery?.enabled),
       includeUnknown: catalog.discovery?.includeUnknown !== false,

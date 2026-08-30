@@ -9,6 +9,7 @@ import { deflateSync } from "node:zlib";
 import { loadConfig, loadModelCatalogDefinition, publicConfig } from "./config.js";
 import { buildCatalogModels, buildDiscoveredModels, buildInferenceConfig } from "./model-discovery.js";
 import { normalizeLatencyHistory, normalizeLatencyRecord } from "./latency-history.js";
+import { modelPresentationSnapshot } from "./history-models.js";
 import { redactSensitiveData } from "./redaction.js";
 import { saveEditableSettings, settingsResponse } from "./settings.js";
 import { staticResponseHeaders } from "./static-cache.js";
@@ -521,6 +522,7 @@ const BUILTIN_DGX_MODEL_CATALOG = [
 
 const MODEL_CATALOG_DEFINITION = await loadModelCatalogDefinition(BUILTIN_DGX_MODEL_CATALOG);
 const DGX_MODEL_CATALOG = MODEL_CATALOG_DEFINITION.models;
+const HISTORY_MODELS = MODEL_CATALOG_DEFINITION.historyModels;
 const MODEL_DISCOVERY = MODEL_CATALOG_DEFINITION.discovery;
 
 const DEFAULT_LATENCY_THRESHOLDS = {
@@ -1130,6 +1132,9 @@ async function fetchVllmModels() {
         modalities,
         visualCapable: /\b(?:image|video)\b/i.test(modalities),
         inferenceConfig: buildInferenceConfig(configuredModel),
+        modelPresentation: modelPresentationSnapshot(configuredModel
+          ? { ...configuredModel, id: model.id, displayName: configuredModel.label }
+          : { key: model.id, id: model.id, displayName: model.id }),
         label: isApplicationAlias
           ? `Application alias: ${model.id}`
           : configuredModel
@@ -1147,6 +1152,7 @@ async function fetchVllmModels() {
       selectableModels: modelsWithPresentation.filter((model) => model.selectable),
       applicationAliases: modelsWithPresentation.filter((model) => model.isApplicationAlias),
       catalogModels,
+      historyModels: HISTORY_MODELS,
     };
   } catch (error) {
     return {
@@ -1157,6 +1163,7 @@ async function fetchVllmModels() {
       selectableModels: [],
       applicationAliases: [],
       catalogModels: buildCatalogModels(DGX_MODEL_CATALOG),
+      historyModels: HISTORY_MODELS,
     };
   } finally {
     clearTimeout(timeout);
@@ -1676,6 +1683,11 @@ function sanitizeLatencyInput(input, availableModels) {
     model,
     modelKey: selectedModel.configuredModelKey || null,
     modelLabel: selectedModel.configuredModelName || selectedModel.label || model,
+    modelPresentation: selectedModel.modelPresentation || modelPresentationSnapshot({
+      key: selectedModel.configuredModelKey || model,
+      id: model,
+      displayName: selectedModel.configuredModelName || selectedModel.label || model,
+    }),
     inferenceConfig: selectedModel.inferenceConfig || null,
     benchmarkType,
     profile,
@@ -1864,6 +1876,7 @@ async function runLatencyBenchmark(config, res) {
       model: config.model,
       modelKey: config.modelKey,
       modelLabel: config.modelLabel,
+      modelPresentation: config.modelPresentation,
       inferenceConfig: config.inferenceConfig,
       benchmarkType: config.benchmarkType,
       promptLabel: config.promptLabel,
@@ -1878,7 +1891,7 @@ async function runLatencyBenchmark(config, res) {
       suiteCaseIndex: config.suiteCaseIndex,
       suiteCaseCount: config.suiteCaseCount,
       stopped: controller.signal.aborted,
-      historyVersion: 3,
+      historyVersion: 4,
       historyCategory: config.benchmarkType,
       summary,
       runs,

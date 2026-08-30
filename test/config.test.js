@@ -82,6 +82,41 @@ test("model catalog exposes discovery settings and filters enabled recipes", asy
   await rm(directory, { recursive: true });
 });
 
+test("model catalog keeps history metadata separate from controller recipes", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "ai-lab-history-models-"));
+  const catalogPath = join(directory, "models.json");
+  await writeFile(catalogPath, JSON.stringify({
+    mode: "replace",
+    models: [],
+    historyModels: [{
+      key: "retired-model",
+      displayName: "Retired Model",
+      providerLogo: "nvidia",
+      repository: "example/controller-recipe",
+      dockerArgs: "--controller-only",
+    }],
+  }));
+  const previous = process.env.MODEL_CATALOG_PATH;
+  process.env.MODEL_CATALOG_PATH = catalogPath;
+  const definition = await loadModelCatalogDefinition([{ key: "active-model", label: "Active Model" }]);
+
+  assert.deepEqual(definition.models, []);
+  assert.deepEqual(definition.historyModels, [{
+    key: "retired-model",
+    id: "retired-model",
+    servedNames: [],
+    displayName: "Retired Model",
+    provider: null,
+    providerLogo: "nvidia",
+  }]);
+  assert.equal("repository" in definition.historyModels[0], false);
+  assert.equal("dockerArgs" in definition.historyModels[0], false);
+
+  if (previous === undefined) delete process.env.MODEL_CATALOG_PATH;
+  else process.env.MODEL_CATALOG_PATH = previous;
+  await rm(directory, { recursive: true });
+});
+
 test("environment variables override profile host and control token", async () => {
   const directory = await mkdtemp(join(tmpdir(), "ai-lab-env-"));
   const profile = join(directory, "profile.json");

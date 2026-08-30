@@ -104,6 +104,12 @@ Use `enabledKeys` when an installation should expose only a subset of a shared c
 
 Catalog entries influence vLLM launch commands. Treat catalog write access as privileged.
 
+### Retired models and benchmark history
+
+Benchmark files are independent of model checkpoints. New runs save a presentation snapshot, so their model name and provider icon remain available after the checkpoint and controller recipe are removed. For older runs, add a presentation-only entry to `historyModels` in `config/models.local.json`. These entries never appear in Model Controller and the server strips controller fields from them.
+
+Keep provider icons under `public/provider-logos/` even after deleting a checkpoint. See [Benchmark and icon retention](BENCHMARK_RETENTION.md) for the removal checklist and configuration example.
+
 ## Optional Spark Doctor Integration
 
 [Spark Doctor](https://github.com/joeynyc/spark-doctor) is an independent, MIT-licensed DGX Spark diagnostic CLI. It is not bundled or installed by Spark AI Lab. Install it separately on the compute host, then enable the integration and provide its project directory:

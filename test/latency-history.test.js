@@ -36,7 +36,7 @@ test("history normalization removes duplicate persisted records without dropping
   assert.deepEqual(records.map(({ id }) => id), ["same", "other"]);
 });
 
-test("new benchmark records retain their inference configuration snapshot", () => {
+test("new benchmark records retain inference and presentation snapshots", () => {
   const record = normalizeLatencyRecord({
     id: "mtp3-run",
     historyVersion: 3,
@@ -48,16 +48,26 @@ test("new benchmark records retain their inference configuration snapshot", () =
       kvCache: "8 GB FP8",
       speculativeDecoding: { method: "MTP", draftTokens: 3 },
     },
+    modelPresentation: {
+      key: "qwen38-nvfp4",
+      id: "qwen3.8-27b-nvfp4",
+      displayName: "Qwen 3.8 27B NVFP4",
+      providerLogo: "qwen",
+      cacheDirectory: "models--qwen--removed-from-history",
+    },
   });
 
-  assert.equal(record.historyVersion, 3);
+  assert.equal(record.historyVersion, 4);
   assert.equal(record.legacy, false);
   assert.deepEqual(record.inferenceConfig.speculativeDecoding, { method: "MTP", draftTokens: 3 });
+  assert.equal(record.modelPresentation.displayName, "Qwen 3.8 27B NVFP4");
+  assert.equal(record.modelPresentation.providerLogo, "qwen");
+  assert.equal("cacheDirectory" in record.modelPresentation, false);
 });
 
 test("version two records stay supported when inference configuration was not recorded", () => {
   const record = normalizeLatencyRecord({ id: "v2-run", historyVersion: 2, model: "older-model" });
-  assert.equal(record.historyVersion, 3);
+  assert.equal(record.historyVersion, 4);
   assert.equal(record.legacy, false);
   assert.equal(record.inferenceConfig, null);
 });

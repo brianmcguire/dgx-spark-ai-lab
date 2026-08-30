@@ -1,3 +1,5 @@
+import { normalizeHistoryModel } from "./history-models.js";
+
 const VISUAL_PROFILES = new Set(["extraction", "reasoning", "document", "comparison"]);
 
 function finiteNumber(value, fallback = null) {
@@ -39,8 +41,9 @@ export function normalizeLatencyRecord(record, { modelAliases = new Map() } = {}
     model,
     benchmarkType,
     historyCategory: benchmarkType,
-    historyVersion: 3,
-    legacy: ![2, 3].includes(record.historyVersion),
+    historyVersion: 4,
+    legacy: ![2, 3, 4].includes(record.historyVersion),
+    modelPresentation: normalizeHistoryModel(record.modelPresentation),
     inferenceConfig: normalizeInferenceConfig(record.inferenceConfig),
     suiteId,
     suiteRunId: suiteId && typeof record.suiteRunId === "string" ? record.suiteRunId : null,

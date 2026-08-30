@@ -25,23 +25,18 @@ import {
 import {
   bestComparableSingleCodingView,
   benchmarkSeriesKey,
+  benchmarkPresentationModels,
   catalogModelPresentations,
   inferenceConfigLabel,
   initialCodingBenchmarkView,
   speculativeDecodingLabel,
   summarizeBenchmarkModels,
 } from "./benchmark-history.js";
+import { PROVIDER_LOGO_PATHS } from "./provider-logos.js";
 import "./styles.css";
 
 const number = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
 const compactNumber = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
-const PROVIDER_LOGO_PATHS = {
-  nvidia: "/provider-logos/nvidia.svg",
-  google: "/provider-logos/google.png",
-  qwen: "/provider-logos/qwen.webp",
-  "red-hat": "/provider-logos/red-hat.svg",
-  poolside: "/provider-logos/poolside.svg",
-};
 const DASHBOARD_TABS = [
   { id: "health", label: "Health Dashboard", detail: "Health, telemetry, and trends", icon: Activity },
   { id: "controller", label: "Model Controller", detail: "Primary vLLM service control", icon: TerminalSquare },
@@ -1237,6 +1232,10 @@ function LatencyLab() {
   const [error, setError] = useState("");
   const [suiteProgress, setSuiteProgress] = useState(null);
   const cancelSuiteRef = useRef(false);
+  const historyPresentationModels = useMemo(
+    () => benchmarkPresentationModels(history, catalog.catalogModels, catalog.historyModels),
+    [catalog.catalogModels, catalog.historyModels, history],
+  );
 
   async function loadCatalog() {
     const [modelsData, historyData] = await Promise.all([api("/api/latency/models"), api("/api/latency/history")]);
@@ -1247,7 +1246,7 @@ function LatencyLab() {
       loadedHistory,
       modelsData.codingSuites,
       "standardCodingV1",
-      modelsData.catalogModels,
+      benchmarkPresentationModels(loadedHistory, modelsData.catalogModels, modelsData.historyModels),
     );
     setBenchmarkPlan(initialView.benchmarkPlan);
     if (initialView.profile) setProfile(initialView.profile);
@@ -1433,7 +1432,7 @@ function LatencyLab() {
   }
 
   function showSavedSingleHistory() {
-    const view = bestComparableSingleCodingView(history, catalog.catalogModels);
+    const view = bestComparableSingleCodingView(history, historyPresentationModels);
     if (!view) return;
     setBenchmarkPlan(view.benchmarkPlan);
     setProfile(view.profile);
@@ -1586,11 +1585,11 @@ function LatencyLab() {
         </div>
       )}
 
-      <SavedModelHistory history={history} catalogModels={catalog.catalogModels} benchmarkType={benchmarkType} />
+      <SavedModelHistory history={history} catalogModels={historyPresentationModels} benchmarkType={benchmarkType} />
 
       <ModelBenchmarkComparison
         history={history}
-        catalogModels={catalog.catalogModels}
+        catalogModels={historyPresentationModels}
         benchmarkType={benchmarkType}
         suiteId={selectedSuite ? benchmarkPlan : ""}
         suites={catalog.codingSuites}
