@@ -2016,10 +2016,10 @@ function DgxOverview({ dgx, liveGpu }) {
 
   return (
     <div className="overview-grid">
+      {dgx?.sparkDoctor?.available && <MetricCard icon={CheckCircle2} label="Spark Doctor" value={overall} detail={dgx?.latestSparkDoctor?.path || "No saved report yet"} tone={overall === "OK" ? "good" : "warn"} />}
       <MetricCard icon={Gauge} label="GPU utilization" value={`${number.format(gpu.util || 0)}%`} detail={`${gpu.name || "NVIDIA GPU"} · driver ${gpu.driver || "unknown"}`} gauge={gpu.util || 0} />
       <MetricCard icon={Zap} label="Power / Temp" value={`${number.format(gpu.power || 0)} W`} detail={`${number.format(gpu.temp || 0)} C · ${number.format(gpu.clock || 0)} MHz`} tone={(gpu.temp || 0) > 80 ? "warn" : "default"} />
       <MetricCard icon={MemoryStick} label="Memory used" value={`${number.format(usedPct)}%`} detail={`${number.format(availGb)} GB free · ${number.format(totalGb)} GB total`} gauge={usedPct} />
-      {dgx?.sparkDoctor?.available && <MetricCard icon={CheckCircle2} label="Spark Doctor" value={overall} detail={dgx?.latestSparkDoctor?.path || "No saved report yet"} tone={overall === "OK" ? "good" : "warn"} />}
       <MetricCard icon={Box} label="Docker runtime" value={dgx?.docker?.length ? `${dgx.docker.length} running` : "0 running"} detail="Docker + NVIDIA runtime collected from DGX" />
       <MetricCard icon={HardDrive} label="Uptime / Load" value={uptime(dgx?.summary?.uptimeSeconds)} detail={dgx?.summary?.loadavg || "load unavailable"} />
     </div>
