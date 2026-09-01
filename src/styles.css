@@ -1171,12 +1171,15 @@ h1 {
 }
 
 .live-metric-reading strong {
-  overflow: hidden;
+  flex: 0 1 auto;
+  min-width: 0;
+  padding-inline-end: 0.08em;
+  overflow: visible;
   font-size: clamp(2.45rem, 3.45vw, 4.1rem);
   font-weight: 760;
   letter-spacing: -0.055em;
   line-height: 0.92;
-  text-overflow: ellipsis;
+  text-overflow: clip;
   white-space: nowrap;
 }
 
