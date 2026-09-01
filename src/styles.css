@@ -819,7 +819,7 @@ h1 {
 
 .overview-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.8rem;
 }
 
@@ -2283,6 +2283,10 @@ textarea:focus-visible {
   gap: 0.65rem;
 }
 
+.health-view .overview-grid {
+  gap: 0.8rem;
+}
+
 .health-view .vllm-grid {
   grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
 }
@@ -2291,6 +2295,11 @@ textarea:focus-visible {
 .health-view .vllm-grid .metric-card {
   min-height: 6.9rem;
   padding: 0.75rem;
+}
+
+.health-view .overview-grid .metric-card {
+  min-height: 11.5rem;
+  padding: 1rem 1.1rem;
 }
 
 .health-view .metric-card.spark-card,
@@ -2303,13 +2312,28 @@ textarea:focus-visible {
   min-height: 8.75rem;
 }
 
+.health-view .overview-grid .metric-card.gauge-card {
+  min-height: 14rem;
+}
+
 .health-view .gauge-card .semi-gauge {
   width: min(100%, 9.5rem);
   min-height: 4.5rem;
 }
 
+.health-view .overview-grid .gauge-card .semi-gauge {
+  width: min(100%, 12rem);
+  min-height: 8rem;
+  margin-block: 0.35rem 0.7rem;
+}
+
 .health-view .gauge-card .semi-gauge > strong {
   font-size: clamp(1.2rem, 1.7vw, 1.6rem);
+}
+
+.health-view .overview-grid .gauge-card .semi-gauge > strong {
+  inset-block-start: 62%;
+  font-size: clamp(1.55rem, 2.2vw, 2rem);
 }
 
 .health-view .panel {
