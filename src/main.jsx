@@ -1943,13 +1943,14 @@ function ModelBanner({ dgx }) {
   const loaded = dgx?.vllm?.loadedModel;
   const aliases = (dgx?.vllm?.models || []).map((model) => model.id).filter(Boolean);
   const details = dgx?.vllm?.huggingFace;
-  const aliasText = aliases.length > 1 ? `Served aliases: ${aliases.join(", ")}` : "Single served model name";
+  const aliasText = `${aliases.length || 1} served alias${aliases.length === 1 ? "" : "es"}`;
   const contextText = loaded?.maxModelLen ? `${number.format(loaded.maxModelLen)} token context` : "Context metadata unavailable";
   const detailItems = details?.ok ? [
     ["Base model", details.baseModel || "n/a"],
     ["Provider", details.provider || details.author || "n/a"],
     ["License", details.license || "n/a"],
     ["Parameters", formatLargeNumber(details.parameters)],
+    ["Served aliases", aliases.length ? aliases.join(", ") : "n/a"],
     ["Tasks", details.tasks?.length ? details.tasks.join(", ") : "n/a"],
     ["Updated", formatDate(details.lastModified)],
     ["Downloads", formatLargeNumber(details.downloads)],
@@ -1957,31 +1958,40 @@ function ModelBanner({ dgx }) {
   ] : [];
 
   return (
-    <section className={`model-banner ${loaded ? "good" : "warn"}`} aria-label="Loaded vLLM model">
+    <article className={`model-banner infrastructure-model ${loaded ? "good" : "warn"}`} aria-label="Loaded vLLM model">
       <div className="model-primary">
         <span className="metric-icon"><TerminalSquare size={18} /></span>
         <div>
-          <span>Loaded vLLM model</span>
+          <span>Active vLLM</span>
           <strong>{loaded?.id || "Model endpoint unavailable"}</strong>
-          <small>{loaded ? `${contextText} · ${aliasText}` : "The dashboard could not read the DGX /v1/models endpoint on this refresh."}</small>
+          {loaded ? (
+            <div className="model-inline-meta">
+              <small>{contextText}</small>
+              <small>{aliasText}</small>
+            </div>
+          ) : (
+            <small>The dashboard could not read the DGX /v1/models endpoint on this refresh.</small>
+          )}
         </div>
       </div>
       {details?.ok ? (
         <details className="model-details">
           <summary>Model metadata</summary>
-          {details.description && <p className="model-description">{details.description}</p>}
-          <div className="model-detail-grid">
-            {detailItems.map(([label, value]) => (
-              <div key={label}>
-                <span>{label}</span>
-                <strong>{value}</strong>
-              </div>
-            ))}
-          </div>
-          <div className="model-tags">
-            {details.toolCallingSupported && <span>tool calling</span>}
-            {(details.tags || []).slice(0, 8).map((tag) => <span key={tag}>{tag}</span>)}
-            {details.repoUrl && <a href={details.repoUrl} target="_blank" rel="noreferrer">Hugging Face</a>}
+          <div className="model-detail-popover">
+            {details.description && <p className="model-description">{details.description}</p>}
+            <div className="model-detail-grid">
+              {detailItems.map(([label, value]) => (
+                <div key={label}>
+                  <span>{label}</span>
+                  <strong>{value}</strong>
+                </div>
+              ))}
+            </div>
+            <div className="model-tags">
+              {details.toolCallingSupported && <span>tool calling</span>}
+              {(details.tags || []).slice(0, 8).map((tag) => <span key={tag}>{tag}</span>)}
+              {details.repoUrl && <a href={details.repoUrl} target="_blank" rel="noreferrer">Hugging Face</a>}
+            </div>
           </div>
         </details>
       ) : (
@@ -1991,7 +2001,7 @@ function ModelBanner({ dgx }) {
           {details?.repoUrl && <a href={details.repoUrl} target="_blank" rel="noreferrer">Open model page</a>}
         </div>
       )}
-    </section>
+    </article>
   );
 }
 
@@ -2266,15 +2276,19 @@ function App() {
         {error && <div className="error-banner"><AlertTriangle size={18} />{error}</div>}
         <DashboardTabs tabs={tabs} activeTab={activeTab} onNavigate={handleNavigate} />
         <div className="tab-view health-view" role="tabpanel" hidden={activeTab !== "health"}>
-          <section className="hero-status" id="dgx">
-            <div>
+          <section className="hero-status infrastructure-hero" id="dgx">
+            <div className="infrastructure-identity">
               <StatusPill ok={ok}>{ok ? "Overall OK" : "Needs attention"}</StatusPill>
-              <h2>{dgx?.summary?.hostname || appConfig.compute?.label || "Compute host"} infrastructure view</h2>
+              <h2>
+                <span>{dgx?.summary?.hostname || appConfig.compute?.label || "Compute host"}</span>
+                <small>Infrastructure view</small>
+              </h2>
               <p>
                 Live data is collected {appConfig.compute?.connection === "ssh" ? "over SSH" : "from this host"}.
                 {appConfig.capabilities?.sparkDoctor ? " Spark Doctor results are folded into the dashboard." : " Inference and system telemetry refresh automatically."}
               </p>
             </div>
+            <ModelBanner dgx={dgx} />
             <div className="signal-card">
               <Activity size={26} />
               <span>Collector cadence</span>
@@ -2282,7 +2296,6 @@ function App() {
               <small>60s retained system samples</small>
             </div>
           </section>
-          <ModelBanner dgx={dgx} />
           <DgxOverview dgx={dgx} liveGpu={liveVllm?.gpu?.[0]} />
           <LlmMetricsPanel dgx={dgx} liveVllm={liveVllm} history={history} />
           <PerformanceTrendsSection history={history} />

@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## Unreleased
 
+### Changed
+
+- The health dashboard now combines infrastructure identity, the active vLLM model, and collector cadence into one compact responsive header.
+
 ## 1.3.0 - 2026-08-31
 
 ### Added
