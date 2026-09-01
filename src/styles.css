@@ -1009,6 +1009,129 @@ h1 {
   gap: 0.75rem;
 }
 
+.vllm-live-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(13rem, 1.35fr)) repeat(3, minmax(9.5rem, 0.82fr));
+  gap: 0.65rem;
+}
+
+.live-metric-card {
+  min-width: 0;
+  min-height: 9.25rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 0.9rem 1rem 0.82rem;
+  overflow: hidden;
+  border: 1px solid rgba(175, 194, 164, 0.14);
+  border-radius: 8px;
+  background: linear-gradient(155deg, rgba(17, 24, 17, 0.98), rgba(8, 12, 8, 0.96));
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.025), 0 0.8rem 2rem rgba(0, 0, 0, 0.18);
+}
+
+.live-metric-card.good {
+  border-color: rgba(157, 199, 61, 0.3);
+}
+
+.live-metric-card.warn {
+  border-color: rgba(245, 158, 11, 0.38);
+}
+
+.live-metric-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: #aebca9;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+.live-metric-head i {
+  width: 0.46rem;
+  height: 0.46rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #596456;
+  box-shadow: 0 0 0 0.22rem rgba(89, 100, 86, 0.1);
+}
+
+.live-metric-card.good .live-metric-head i {
+  background: var(--lime-bright);
+  box-shadow: 0 0 0 0.22rem rgba(168, 216, 58, 0.1), 0 0 0.7rem rgba(168, 216, 58, 0.36);
+}
+
+.live-metric-card.warn .live-metric-head i {
+  background: #f8c66d;
+  box-shadow: 0 0 0 0.22rem rgba(245, 158, 11, 0.1), 0 0 0.7rem rgba(245, 158, 11, 0.34);
+}
+
+.live-metric-reading {
+  display: flex;
+  align-items: baseline;
+  gap: 0.42rem;
+  min-width: 0;
+  color: #e9f4df;
+  font-variant-numeric: tabular-nums;
+}
+
+.live-metric-reading strong {
+  overflow: hidden;
+  font-size: clamp(2.45rem, 3.45vw, 4.1rem);
+  font-weight: 760;
+  letter-spacing: -0.055em;
+  line-height: 0.92;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-metric-card.priority .live-metric-reading strong {
+  color: var(--lime-bright);
+  text-shadow: 0 0 1.25rem rgba(168, 216, 58, 0.18);
+}
+
+.live-metric-card.warn .live-metric-reading strong {
+  color: #f8c66d;
+}
+
+.live-metric-reading small {
+  flex: 0 0 auto;
+  color: #8fa086;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.live-metric-card p {
+  color: #7f8e7a;
+  font-size: 0.68rem;
+  line-height: 1.25;
+}
+
+.live-metric-meter {
+  height: 0.24rem;
+  overflow: hidden;
+  margin-top: 0.42rem;
+  border-radius: 999px;
+  background: rgba(175, 194, 164, 0.1);
+}
+
+.live-metric-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--lime-bright);
+  box-shadow: 0 0 0.55rem rgba(168, 216, 58, 0.42);
+}
+
+.live-metric-card.warn .live-metric-meter span {
+  background: #f8c66d;
+}
+
+.vllm-secondary-grid {
+  margin-top: 0.65rem;
+}
+
 .vllm-grid .metric-card {
   min-height: 9.4rem;
 }
@@ -2753,6 +2876,10 @@ textarea:focus-visible {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .vllm-live-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .resource-diagnostic-grid {
     grid-template-columns: 1fr;
   }
@@ -2979,6 +3106,18 @@ textarea:focus-visible {
     grid-template-columns: 1fr;
   }
 
+  .vllm-live-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .live-metric-card {
+    min-height: 8.5rem;
+  }
+
+  .live-metric-reading strong {
+    font-size: clamp(2.55rem, 12vw, 3.55rem);
+  }
+
   .diagnostics-title {
     align-items: stretch;
     flex-direction: column;
@@ -3096,5 +3235,15 @@ textarea:focus-visible {
   .row span:nth-child(4),
   .row span:nth-child(5) {
     display: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .vllm-live-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .live-metric-card {
+    min-height: 8rem;
   }
 }

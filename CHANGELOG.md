@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## Unreleased
 
+## 1.3.0 - 2026-08-31
+
 ### Added
 
 - Qwen 3.8 27B BF16 is available as a guarded DGX Spark model-controller recipe with text, image, and video capabilities.
@@ -13,6 +15,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 
+- Live vLLM telemetry now leads with an operations strip that gives decode throughput, prompt throughput, active and queued requests, and KV-cache usage stronger visual hierarchy.
 - Docker-backed model launches retain vLLM compilation caches between model switches and use explicit unified-memory reservations for the Qwen 3.8 and Nemotron 3.5 Lightning profiles.
 - Model Controller and Benchmark Lab metadata now identify Qwen 3.8 NVFP4's MTP3 configuration, and new benchmark records preserve the complete inference configuration used for each result.
 - Benchmark leaderboards separate different inference configurations of the same checkpoint into distinct comparison rows instead of averaging MTP1 and MTP3 results together.

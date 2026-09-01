@@ -272,6 +272,25 @@ function MetricCard({ icon: Icon, label, value, detail, tone = "default", meter,
   );
 }
 
+function LiveMetricCard({ label, value, unit = "", detail, tone = "default", meter = null, priority = false }) {
+  return (
+    <article className={`live-metric-card ${tone} ${priority ? "priority" : ""}`} aria-label={`${label}: ${value}${unit ? ` ${unit}` : ""}`}>
+      <div className="live-metric-head">
+        <span>{label}</span>
+        <i aria-hidden="true" />
+      </div>
+      <div className="live-metric-reading">
+        <strong>{value}</strong>
+        {unit && <small>{unit}</small>}
+      </div>
+      <p>{detail}</p>
+      {typeof meter === "number" && (
+        <div className="live-metric-meter" aria-hidden="true"><span style={{ width: `${Math.max(0, Math.min(100, meter))}%` }} /></div>
+      )}
+    </article>
+  );
+}
+
 function TrendChart({ points = [], series = [], min = 0, max, height = 142, hoverIndex = null, onHoverIndex, thresholds = [] }) {
   const width = 640;
   const pad = { top: 12, right: 12, bottom: 24, left: 34 };
@@ -513,6 +532,10 @@ function LlmMetricsPanel({ dgx, liveVllm, history = [] }) {
   const recent = history.slice(-30);
   const totalRateHistory = recent.map((point) => Number(point.promptTokensPerSecond || 0) + Number(point.generationTokensPerSecond || 0));
   const outputRateHistory = recent.map((point) => Number(point.generationTokensPerSecond || 0));
+  const rawInputRate = metrics?.rates?.promptTokensPerSecond ?? latest.promptTokensPerSecond;
+  const runningRequests = Number(metrics?.queue?.running || 0);
+  const waitingRequests = Number(metrics?.queue?.waiting || 0);
+  const liveMetricValue = (value) => Number.isFinite(Number(value)) ? number.format(Number(value)) : "n/a";
 
   return (
     <section className="panel wide vllm-panel" id="vllm">
@@ -524,17 +547,23 @@ function LlmMetricsPanel({ dgx, liveVllm, history = [] }) {
         <StatusPill ok={metrics?.available}>{liveVllm?.ok ? "live 5s" : metrics?.available ? "snapshot" : "unavailable"}</StatusPill>
       </div>
       {metrics?.available ? (
-        <div className="vllm-grid">
-          <MetricCard icon={Activity} label="Total tokens" value={formatLargeNumber(metrics.totalTokens)} detail={`${formatLargeNumber(metrics.promptTokens)} input · ${formatLargeNumber(metrics.generationTokens)} output`} />
-          <MetricCard icon={Gauge} label="Total TPS" value={totalRate} detail={`Input ${inputRate} · Output ${outputRate}`} tone={metrics.rates?.totalTokensPerSecond > 0 ? "good" : "default"} sparkline={totalRateHistory} />
-          <MetricCard icon={TerminalSquare} label="Output TPS" value={outputRate} detail="Generated tokens per second" tone={metrics.rates?.generationTokensPerSecond > 0 ? "good" : "default"} sparkline={outputRateHistory} />
-          <MetricCard icon={Activity} label="Per-request Output TPS" value={perRequestOutputRate == null ? "idle" : formatRate(perRequestOutputRate)} detail={activeOrWaiting ? `${number.format(activeOrWaiting)} active or waiting request${activeOrWaiting === 1 ? "" : "s"}` : "Available while requests are active or queued"} tone={perRequestOutputRate > 0 ? "good" : "default"} />
-          <MetricCard icon={Gauge} label="Request outcomes" value={`${formatLargeNumber(metrics.requests?.successful)} ok`} detail={`${requestRate} · ${requestErrors} errors · ${formatLargeNumber(metrics.toolCalls)} tool parses`} tone={requestErrors ? "warn" : "good"} />
-          <MetricCard icon={Activity} label="Request queue" value={`${number.format(metrics.queue?.running || 0)} running`} detail={`${number.format(metrics.queue?.waiting || 0)} waiting`} tone={metrics.queue?.waiting ? "warn" : "default"} />
-          <MetricCard icon={MemoryStick} label="KV cache" value={cacheUsage == null ? "n/a" : `${number.format(cacheUsage)}%`} detail={prefixHitRate == null ? "No prefix-cache queries yet" : `${number.format(prefixHitRate)}% prefix hit rate`} gauge={cacheUsage ?? 0} />
-          <MetricCard icon={Zap} label="Time to first token p95" value={formatLatency(metrics.latency?.ttftP95Seconds)} detail={`Queue p95 ${formatLatency(metrics.latency?.queueP95Seconds)}`} />
-          <MetricCard icon={Gauge} label="End-to-end latency p95" value={formatLatency(metrics.latency?.e2eP95Seconds)} detail={`Inter-token p95 ${formatLatency(metrics.latency?.interTokenP95Seconds)}`} />
-        </div>
+        <>
+          <div className="vllm-live-grid" aria-label="Live inference metrics">
+            <LiveMetricCard label="Decode throughput" value={liveMetricValue(rawOutputRate)} unit="tok/s" detail="Generated tokens per second" tone={Number(rawOutputRate) > 0 ? "good" : "default"} priority />
+            <LiveMetricCard label="Prompt throughput" value={liveMetricValue(rawInputRate)} unit="tok/s" detail="Prompt tokens processed per second" tone={Number(rawInputRate) > 0 ? "good" : "default"} priority />
+            <LiveMetricCard label="Running requests" value={liveMetricValue(runningRequests)} detail="Active inference sequences" tone={runningRequests > 0 ? "good" : "default"} />
+            <LiveMetricCard label="Queued requests" value={liveMetricValue(waitingRequests)} detail={waitingRequests > 0 ? "Waiting for inference capacity" : "No requests waiting"} tone={waitingRequests > 0 ? "warn" : "good"} />
+            <LiveMetricCard label="KV cache usage" value={liveMetricValue(cacheUsage)} unit={cacheUsage == null ? "" : "%"} detail={prefixHitRate == null ? "No prefix-cache queries yet" : `${number.format(prefixHitRate)}% prefix hit rate`} tone={Number(cacheUsage) >= 85 ? "warn" : "good"} meter={cacheUsage} />
+          </div>
+          <div className="vllm-grid vllm-secondary-grid">
+            <MetricCard icon={Activity} label="Total tokens" value={formatLargeNumber(metrics.totalTokens)} detail={`${formatLargeNumber(metrics.promptTokens)} input · ${formatLargeNumber(metrics.generationTokens)} output`} />
+            <MetricCard icon={Gauge} label="Total TPS" value={totalRate} detail={`Input ${inputRate} · Output ${outputRate}`} tone={metrics.rates?.totalTokensPerSecond > 0 ? "good" : "default"} sparkline={totalRateHistory} />
+            <MetricCard icon={Activity} label="Per-request Output TPS" value={perRequestOutputRate == null ? "idle" : formatRate(perRequestOutputRate)} detail={activeOrWaiting ? `${number.format(activeOrWaiting)} active or waiting request${activeOrWaiting === 1 ? "" : "s"}` : "Available while requests are active or queued"} tone={perRequestOutputRate > 0 ? "good" : "default"} />
+            <MetricCard icon={Gauge} label="Request outcomes" value={`${formatLargeNumber(metrics.requests?.successful)} ok`} detail={`${requestRate} · ${requestErrors} errors · ${formatLargeNumber(metrics.toolCalls)} tool parses`} tone={requestErrors ? "warn" : "good"} />
+            <MetricCard icon={Zap} label="Time to first token p95" value={formatLatency(metrics.latency?.ttftP95Seconds)} detail={`Queue p95 ${formatLatency(metrics.latency?.queueP95Seconds)}`} />
+            <MetricCard icon={Gauge} label="End-to-end latency p95" value={formatLatency(metrics.latency?.e2eP95Seconds)} detail={`Inter-token p95 ${formatLatency(metrics.latency?.interTokenP95Seconds)}`} />
+          </div>
+        </>
       ) : (
         <div className="offline-box"><AlertTriangle size={18} /><div><strong>vLLM metrics are not available.</strong><span>The model endpoint is reachable separately, but the telemetry endpoint did not return Prometheus samples.</span></div></div>
       )}
