@@ -255,15 +255,42 @@ function SemiGauge({ percent = 0, value, label }) {
   );
 }
 
-function MetricCard({ icon: Icon, label, value, detail, tone = "default", meter, gauge, sparkline }) {
+function TemperatureBar({ value = 0, detail }) {
+  const temperature = Number(value) || 0;
+  const minTemperature = 0;
+  const maxTemperature = 100;
+  const bounded = Math.max(minTemperature, Math.min(maxTemperature, temperature));
+  const position = ((bounded - minTemperature) / (maxTemperature - minTemperature)) * 100;
+  const temperatureLabel = `${number.format(temperature)} °C`;
+
   return (
-    <section className={`metric-card ${tone} ${gauge != null ? "gauge-card" : ""} ${sparkline?.length ? "spark-card" : ""}`}>
+    <div className="temperature-readout">
+      <div
+        className="temperature-bar"
+        role="meter"
+        aria-label={`GPU temperature: ${temperatureLabel}`}
+        aria-valuemin={minTemperature}
+        aria-valuemax={maxTemperature}
+        aria-valuenow={temperature}
+      >
+        <span className="temperature-marker" style={{ "--temperature-position": `${position}%` }}>
+          <strong>{temperatureLabel}</strong>
+        </span>
+      </div>
+      <span className="temperature-frequency">{detail}</span>
+    </div>
+  );
+}
+
+function MetricCard({ icon: Icon, label, value, detail, tone = "default", meter, gauge, sparkline, temperature }) {
+  return (
+    <section className={`metric-card ${tone} ${gauge != null ? "gauge-card" : ""} ${sparkline?.length ? "spark-card" : ""} ${temperature != null ? "temperature-card" : ""}`}>
       <div className="metric-head">
         <span className="metric-icon"><Icon size={18} /></span>
         <span>{label}</span>
       </div>
       {gauge != null ? <SemiGauge percent={gauge} value={value} label={label} /> : <div className="metric-value">{value}</div>}
-      <div className="metric-detail">{detail}</div>
+      {temperature != null ? <TemperatureBar value={temperature} detail={detail} /> : <div className="metric-detail">{detail}</div>}
       {sparkline?.length ? <MiniSparkline values={sparkline} /> : null}
       {typeof meter === "number" && (
         <div className="meter"><span style={{ width: `${Math.max(0, Math.min(100, meter))}%` }} /></div>
@@ -2018,7 +2045,7 @@ function DgxOverview({ dgx, liveGpu }) {
     <div className="overview-grid">
       {dgx?.sparkDoctor?.available && <MetricCard icon={CheckCircle2} label="Spark Doctor" value={overall} detail={dgx?.latestSparkDoctor?.path || "No saved report yet"} tone={overall === "OK" ? "good" : "warn"} />}
       <MetricCard icon={Gauge} label="GPU utilization" value={`${number.format(gpu.util || 0)}%`} detail={`${gpu.name || "NVIDIA GPU"} · driver ${gpu.driver || "unknown"}`} gauge={gpu.util || 0} />
-      <MetricCard icon={Zap} label="Power / Temp" value={`${number.format(gpu.power || 0)} W`} detail={`${number.format(gpu.temp || 0)} C · ${number.format(gpu.clock || 0)} MHz`} tone={(gpu.temp || 0) > 80 ? "warn" : "default"} />
+      <MetricCard icon={Zap} label="Power / Temp" value={`${number.format(gpu.power || 0)} W`} detail={`${number.format(gpu.clock || 0)} MHz`} temperature={gpu.temp || 0} tone={(gpu.temp || 0) > 80 ? "warn" : "default"} />
       <MetricCard icon={MemoryStick} label="Memory used" value={`${number.format(usedPct)}%`} detail={`${number.format(availGb)} GB free · ${number.format(totalGb)} GB total`} gauge={usedPct} />
       <MetricCard icon={Box} label="Docker runtime" value={dgx?.docker?.length ? `${dgx.docker.length} running` : "0 running"} detail="Docker + NVIDIA runtime collected from DGX" />
       <MetricCard icon={HardDrive} label="Uptime / Load" value={uptime(dgx?.summary?.uptimeSeconds)} detail={dgx?.summary?.loadavg || "load unavailable"} />

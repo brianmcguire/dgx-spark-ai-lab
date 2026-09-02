@@ -857,6 +857,62 @@ h1 {
   line-height: 1.05;
 }
 
+.temperature-card {
+  gap: 0.55rem;
+}
+
+.temperature-readout {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+  padding-top: 1.15rem;
+}
+
+.temperature-bar {
+  position: relative;
+  height: 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: linear-gradient(90deg, #4bd29a 0%, #a8d83a 44%, #f3c454 68%, #f28a49 84%, #e95f58 100%);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35), 0 0 0.65rem rgba(168, 216, 58, 0.12);
+}
+
+.temperature-marker {
+  position: absolute;
+  top: 50%;
+  left: clamp(1.45rem, var(--temperature-position), calc(100% - 1.45rem));
+  width: 0.72rem;
+  height: 0.72rem;
+  border: 2px solid #f3f7ef;
+  border-radius: 50%;
+  background: #0a100a;
+  box-shadow: 0 0 0 0.18rem rgba(10, 16, 10, 0.78), 0 0 0.7rem rgba(255, 255, 255, 0.24);
+  transform: translate(-50%, -50%);
+}
+
+.temperature-marker strong {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 0.48rem);
+  color: #f1f6eb;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.temperature-frequency {
+  overflow: hidden;
+  color: #92a08d;
+  font-size: 0.65rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .spark-card .metric-value {
   position: relative;
   z-index: 2;
