@@ -2335,13 +2335,13 @@ function App() {
             {appConfig.capabilities?.sparkDoctor && <SparkDoctorPanel dgx={dgx} lastRun={lastRun} />}
           </div>
         </div>
-        {appConfig.capabilities?.modelControl && <div className="tab-view" role="tabpanel" hidden={activeTab !== "controller"}>
+        {appConfig.capabilities?.modelControl && <div className="tab-view controller-view" role="tabpanel" hidden={activeTab !== "controller"}>
           <ModelControlPanel />
         </div>}
-        {appConfig.capabilities?.benchmarks && <div className="tab-view" role="tabpanel" hidden={activeTab !== "latency"}>
+        {appConfig.capabilities?.benchmarks && <div className="tab-view benchmark-view" role="tabpanel" hidden={activeTab !== "latency"}>
           <LatencyLab />
         </div>}
-        <div className="tab-view" role="tabpanel" hidden={activeTab !== "settings"}>
+        <div className="tab-view settings-view" role="tabpanel" hidden={activeTab !== "settings"}>
           <SettingsPanel />
         </div>
       </main>
