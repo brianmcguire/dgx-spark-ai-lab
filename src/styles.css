@@ -481,7 +481,7 @@ main {
 }
 
 .tab-view:not([hidden]) > * {
-  animation: view-section-enter 460ms var(--motion-enter) both;
+  animation: view-section-enter 460ms var(--motion-enter) backwards;
 }
 
 .tab-view:not([hidden]) > :nth-child(2) {
@@ -627,6 +627,8 @@ h1 {
   gap: 0.85rem;
   margin-bottom: 0.8rem;
   padding: 1rem;
+  position: relative;
+  z-index: 20;
 }
 
 .infrastructure-identity {
@@ -801,7 +803,8 @@ h1 {
   position: absolute;
   z-index: 12;
   top: calc(100% + 0.45rem);
-  left: 0;
+  right: 0;
+  left: auto;
   width: min(42rem, calc(100vw - 3rem));
   padding: 0.9rem;
   border: 1px solid var(--olive-border);
