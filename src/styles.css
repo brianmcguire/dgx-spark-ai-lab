@@ -1192,11 +1192,13 @@ h1 {
 .live-metric-card {
   min-width: 0;
   min-height: 9.25rem;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+  display: grid;
+  grid-template-rows: 1.75rem 4rem minmax(1.7rem, 1fr);
+  align-content: stretch;
+  gap: 0.28rem;
   padding: 0.9rem 1rem 0.82rem;
   overflow: hidden;
+  position: relative;
   border: 1px solid var(--lab-blue-border-soft);
   border-radius: 8px;
   background: linear-gradient(155deg, rgba(17, 24, 17, 0.98), rgba(8, 12, 8, 0.96));
@@ -1213,7 +1215,7 @@ h1 {
 
 .live-metric-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
   color: #aebca9;
@@ -1244,6 +1246,7 @@ h1 {
 .live-metric-reading {
   display: flex;
   align-items: baseline;
+  align-self: center;
   gap: 0.42rem;
   min-width: 0;
   color: #e9f4df;
@@ -1280,15 +1283,22 @@ h1 {
 }
 
 .live-metric-card p {
+  min-height: 1.7rem;
+  display: flex;
+  align-items: flex-end;
+  align-self: stretch;
   color: #7f8e7a;
   font-size: 0.68rem;
   line-height: 1.25;
 }
 
 .live-metric-meter {
+  position: absolute;
+  right: 1rem;
+  bottom: 0.82rem;
+  left: 1rem;
   height: 0.24rem;
   overflow: hidden;
-  margin-top: 0.42rem;
   border-radius: 999px;
   background: rgba(175, 194, 164, 0.1);
 }
@@ -1307,6 +1317,40 @@ h1 {
 
 .vllm-secondary-grid {
   margin-top: 0.65rem;
+}
+
+.vllm-secondary-grid .metric-card,
+.vllm-secondary-grid .metric-card.spark-card {
+  display: grid;
+  grid-template-rows: minmax(2.65rem, auto) 3.05rem minmax(2.35rem, 1fr) 2.35rem;
+  align-content: stretch;
+  justify-content: stretch;
+  gap: 0.35rem;
+}
+
+.vllm-secondary-grid .metric-head {
+  min-height: 2.65rem;
+  align-items: flex-start;
+}
+
+.vllm-secondary-grid .metric-value,
+.vllm-secondary-grid .spark-card .metric-value {
+  min-height: 3.05rem;
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+}
+
+.vllm-secondary-grid .metric-detail,
+.vllm-secondary-grid .spark-card .metric-detail {
+  min-height: 2.35rem;
+  align-self: start;
+}
+
+.vllm-secondary-grid .metric-sparkline,
+.vllm-secondary-grid .spark-card .metric-sparkline {
+  height: 2.35rem;
+  align-self: end;
 }
 
 .vllm-grid .metric-card {
