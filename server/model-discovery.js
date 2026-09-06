@@ -5,6 +5,7 @@ function humanize(value) {
 }
 
 export function buildInferenceConfig(model = {}) {
+  const batchLimit = Number(model.maxBatchedTokens ?? model.maxNumBatchedTokens);
   const speculative = model.speculativeDecoding && typeof model.speculativeDecoding === "object"
     ? {
       method: String(model.speculativeDecoding.method || "").trim() || null,
@@ -17,6 +18,7 @@ export function buildInferenceConfig(model = {}) {
     precision: model.precision || null,
     contextTokens: Number.isFinite(Number(model.maxModelLen)) ? Number(model.maxModelLen) : null,
     maxNumSeqs: Number.isFinite(Number(model.maxNumSeqs)) ? Number(model.maxNumSeqs) : null,
+    ...(Number.isInteger(batchLimit) && batchLimit > 0 ? { maxNumBatchedTokens: batchLimit } : {}),
     kvCache: model.kvCache || null,
     speculativeDecoding: speculative?.method && speculative?.draftTokens > 0 ? speculative : null,
   };

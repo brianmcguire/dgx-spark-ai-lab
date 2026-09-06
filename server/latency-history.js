@@ -19,6 +19,8 @@ function normalizeInferenceConfig(config) {
     precision: typeof config.precision === "string" ? config.precision : null,
     contextTokens: finiteNumber(config.contextTokens),
     maxNumSeqs: finiteNumber(config.maxNumSeqs),
+    ...(Number.isInteger(Number(config.maxNumBatchedTokens)) && Number(config.maxNumBatchedTokens) > 0
+      ? { maxNumBatchedTokens: Number(config.maxNumBatchedTokens) } : {}),
     kvCache: typeof config.kvCache === "string" ? config.kvCache : null,
     speculativeDecoding: speculative?.method && speculative?.draftTokens > 0 ? speculative : null,
   };

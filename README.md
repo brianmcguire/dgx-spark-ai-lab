@@ -48,7 +48,13 @@ Use it on one computer, or run the dashboard separately from a remote NVIDIA com
 
 Monitor system health, live vLLM throughput, request activity, latency, and retained performance trends.
 
+Version 1.4 adds a responsive infrastructure header with bundled Spark artwork, animated rear-cable highlights, a subtle green underglow pulse, and larger model and collector details. Use the pause button to stop the decorative animation. It also pauses off-screen and respects reduced-motion preferences. The animation is visual only, not a measurement of token flow, and makes no inference requests.
+
 ![DGX Spark AI Lab health dashboard](docs/images/health-dashboard.png)
+
+The new header artwork is included in every installation:
+
+![Decorative DGX Spark artwork](public/dgx-spark-flow-v4.png)
 
 #### What the Health Dashboard Monitors
 

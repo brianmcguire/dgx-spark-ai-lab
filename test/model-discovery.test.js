@@ -69,3 +69,10 @@ test("catalog metadata exposes a structured speculative decoding configuration",
     speculativeDecoding: { method: "MTP", draftTokens: 3 },
   });
 });
+
+test("prefill batch metadata is recorded only when explicitly known", () => {
+  assert.equal(buildInferenceConfig({ maxBatchedTokens: 4096 }).maxNumBatchedTokens, 4096);
+  assert.equal(buildInferenceConfig({ maxNumBatchedTokens: 4096 }).maxNumBatchedTokens, 4096);
+  assert.equal(buildInferenceConfig({ maxNumBatchedTokens: -1 }), null);
+  assert.equal(buildInferenceConfig({ maxNumBatchedTokens: "bad" }), null);
+});

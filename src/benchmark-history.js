@@ -118,6 +118,7 @@ export function inferenceConfigLabel(config, fallback = "Configuration not recor
     config.kvCache ? `${config.kvCache} KV cache` : null,
     Number(config.maxNumSeqs) > 0 ? `${Number(config.maxNumSeqs)} max streams` : null,
     speculativeDecodingLabel(config, null),
+    Number(config.maxNumBatchedTokens) > 0 ? `${Number(config.maxNumBatchedTokens).toLocaleString()} prefill batch` : null,
   ].filter(Boolean);
   return parts.length ? parts.join(" · ") : fallback;
 }
@@ -131,6 +132,8 @@ export function inferenceConfigKey(config) {
     Number(config.maxNumSeqs) || null,
     config.speculativeDecoding?.method || null,
     Number(config.speculativeDecoding?.draftTokens) || null,
+    // Keep historical keys unchanged when the batch limit was not recorded.
+    ...(Number(config.maxNumBatchedTokens) > 0 ? [Number(config.maxNumBatchedTokens)] : []),
   ]);
 }
 

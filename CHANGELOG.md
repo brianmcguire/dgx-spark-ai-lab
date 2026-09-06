@@ -4,9 +4,24 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## Unreleased
 
+## 1.4.0 - 2026-09-06
+
+### Added
+
+- Bundled DGX Spark illustration with animated rear-cable highlights and a subtle pulse in the original underglow. The artwork blends into the header without a rectangular background.
+- Decorative animation pause/resume control, reduced-motion support, and automatic pausing when the scene or browser tab is hidden. Animation does not represent live token counts or issue inference requests.
+- Prefill batch limits in saved inference configurations and benchmark labels, with separate comparison series for different batch sizes. Older records remain unchanged when this setting was not recorded.
+
 ### Changed
 
-- The health dashboard now combines infrastructure identity, the active vLLM model, and collector cadence into one compact responsive header.
+- The health dashboard combines infrastructure identity, Spark artwork, the active vLLM model, and collector cadence in a responsive header with larger text and vertically grouped details.
+- Blue accents, page transitions, aligned telemetry values, and a labeled gradient temperature bar improve dashboard readability.
+- The Qwen 3.8 27B NVFP4 recipe uses vLLM 0.28.0, a 4,096-token prefill batch, and a 0.55 startup memory-utilization threshold while retaining its fixed FP8 KV cache and MTP3 settings. These are recipe defaults, not a universal performance guarantee or an automatic update to running services.
+
+### Fixed
+
+- Model metadata overlays stay above adjacent cards, and large telemetry values avoid right-edge clipping.
+- Header text and matching-height model/collector cards adapt from mobile to ultrawide displays.
 
 ## 1.3.0 - 2026-08-31
 

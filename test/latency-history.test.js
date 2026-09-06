@@ -71,3 +71,10 @@ test("version two records stay supported when inference configuration was not re
   assert.equal(record.legacy, false);
   assert.equal(record.inferenceConfig, null);
 });
+
+test("prefill batch snapshots survive normalization without inventing historical settings", () => {
+  const record = normalizeLatencyRecord({ id: "prefill", model: "qwen", inferenceConfig: { maxNumBatchedTokens: 8192 } });
+  assert.equal(record.inferenceConfig.maxNumBatchedTokens, 8192);
+  const old = normalizeLatencyRecord({ id: "old", model: "qwen", inferenceConfig: { maxNumSeqs: 4 } });
+  assert.equal("maxNumBatchedTokens" in old.inferenceConfig, false);
+});

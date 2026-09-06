@@ -2,6 +2,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { benchmarkPresentationModels, benchmarkSeriesKey, bestComparableSingleCodingView, catalogModelPresentations, inferenceConfigLabel, initialCodingBenchmarkView, speculativeDecodingLabel, summarizeBenchmarkModels } from "../src/benchmark-history.js";
 
+test("prefill batch limits distinguish benchmark series and visible configurations", () => {
+  const old = { model: "qwen", inferenceConfig: { speculativeDecoding: { method: "MTP", draftTokens: 3 } } };
+  const a = { ...old, inferenceConfig: { ...old.inferenceConfig, maxNumBatchedTokens: 4096 } };
+  const b = { ...old, inferenceConfig: { ...old.inferenceConfig, maxNumBatchedTokens: 8192 } };
+  assert.notEqual(benchmarkSeriesKey(a), benchmarkSeriesKey(b));
+  assert.notEqual(benchmarkSeriesKey(old), benchmarkSeriesKey(a));
+  assert.match(inferenceConfigLabel(a.inferenceConfig), /4,096 prefill batch/);
+});
+
 const suite = { cases: [{ id: "a" }, { id: "b" }] };
 
 test("legacy coding history opens in a compatible single-run leaderboard", () => {

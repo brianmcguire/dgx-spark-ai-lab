@@ -1,5 +1,11 @@
 # Third-Party Notices
 
+## Decorative Spark artwork
+
+`public/dgx-spark-flow-v4.png` is an AI-generated, stylized DGX Spark illustration created for this dashboard. It is decorative artwork, not an official NVIDIA product photograph or a hardware specification. Its animated cables and underglow do not represent measured inference activity.
+
+NVIDIA, the NVIDIA logo, DGX, and DGX Spark are trademarks and/or registered trademarks of NVIDIA Corporation. This independent project is not affiliated with, sponsored by, or endorsed by NVIDIA.
+
 ## Spark Doctor
 
 Spark AI Lab can optionally integrate with [Spark Doctor](https://github.com/joeynyc/spark-doctor), an independent NVIDIA DGX Spark diagnostic CLI created by Joey.

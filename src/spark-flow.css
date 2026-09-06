@@ -1,0 +1,71 @@
+/* Hardware artwork is static; cable highlights and an underlight animate in CSS.
+   No inference requests, timers, canvas loop, or per-frame React updates. */
+.spark-flow {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-self: center;
+  min-width: 0;
+  width: 100%;
+  margin: 0;
+  padding: 0.15rem 0.25rem 0.45rem;
+  border-radius: 0.75rem;
+  background: transparent;
+}
+
+.spark-flow-scene { display: block; width: 100%; height: auto; overflow: visible; }
+.spark-underglow { opacity: 1; animation: spark-glow-breathe 4.8s ease-in-out infinite; }
+.spark-cable path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.spark-cable-sheath { stroke: #171525; stroke-width: 9; }
+.spark-cable-edge { stroke-width: 3.5; opacity: 0.4; }
+.spark-cable-pulse {
+  stroke-width: 3;
+  stroke-dasharray: 12 88;
+  animation: spark-data-travel 3.6s linear infinite;
+}
+.spark-cable-out .spark-cable-pulse { animation-duration: 4.4s; }
+.spark-cable-halo { stroke-width: 8; opacity: 0.38; filter: blur(3px); }
+.spark-flow-labels { fill: #a994d0; font-size: 11px; font-weight: 700; letter-spacing: 2px; }
+.spark-flow figcaption {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  color: #a9a4ba;
+  font-size: 0.64rem;
+  letter-spacing: 0.07em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+.spark-flow-dot { width: 5px; height: 5px; border-radius: 50%; background: #b197ef; }
+.spark-flow-toggle {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  left: 0.3rem;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  color: #baa9d4;
+  border: 1px solid #544468;
+  border-radius: 50%;
+  background: #10121c;
+  cursor: pointer;
+}
+.spark-flow-toggle:hover { background: #242034; color: #e4d4ff; }
+.spark-flow-toggle:focus-visible { outline: 2px solid #bf9cff; outline-offset: 3px; }
+.spark-flow[data-paused="true"] .spark-cable-pulse,
+.spark-flow[data-paused="true"] .spark-underglow { animation-play-state: paused; }
+@keyframes spark-data-travel { to { stroke-dashoffset: -100; } }
+@keyframes spark-glow-breathe {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spark-flow .spark-cable-pulse { animation: none !important; stroke-dashoffset: -25; }
+  .spark-flow .spark-underglow { animation: none !important; opacity: 1; }
+  .spark-flow-toggle { display: none; }
+}

@@ -33,6 +33,7 @@ import {
   summarizeBenchmarkModels,
 } from "./benchmark-history.js";
 import { PROVIDER_LOGO_PATHS } from "./provider-logos.js";
+import SparkFlow from "./SparkFlow.jsx";
 import "./styles.css";
 
 const number = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
@@ -1194,7 +1195,10 @@ function ModelBenchmarkComparison({
             const width = Math.max(5, (item.averageTps / maxTps) * 100);
             const presentation = modelPresentation.get(item.model);
             const baseDisplayName = presentation?.displayName || item.model;
-            const configurationName = speculativeDecodingLabel(item.inferenceConfig, null);
+            const configurationName = [speculativeDecodingLabel(item.inferenceConfig, null),
+              Number(item.inferenceConfig?.maxNumBatchedTokens) > 0
+                ? `${Number(item.inferenceConfig.maxNumBatchedTokens).toLocaleString()} prefill batch` : null,
+            ].filter(Boolean).join(" · ");
             const displayName = configurationName ? `${baseDisplayName} · ${configurationName}` : baseDisplayName;
             return (
               <div className="model-throughput-row" key={item.key}>
@@ -2316,6 +2320,7 @@ function App() {
                 {appConfig.capabilities?.sparkDoctor ? " Spark Doctor results are folded into the dashboard." : " Inference and system telemetry refresh automatically."}
               </p>
             </div>
+            <SparkFlow active={activeTab === "health"} />
             <ModelBanner dgx={dgx} />
             <div className="signal-card">
               <Activity size={26} />

@@ -360,13 +360,16 @@ const BUILTIN_DGX_MODEL_CATALOG = [
     modalities: "Text, image, video",
     description: "Unsloth Dynamic v3 preview quantization of Qwen 3.8, retaining higher precision for sensitive layers while reducing Spark memory and bandwidth pressure.",
     runtime: "docker",
-    dockerImage: "vllm/vllm-openai:v0.27.1",
+    dockerImage: "vllm/vllm-openai:v0.28.0",
     maxModelLen: 65536,
     maxNumSeqs: 4,
     speculativeDecoding: { method: "MTP", draftTokens: 3 },
+    maxBatchedTokens: 4096,
     startupTimeoutSeconds: 1500,
     readinessProbe: "text",
-    dockerArgs: "--trust-remote-code --gpu-memory-utilization 0.60 --kv-cache-dtype fp8 --reasoning-parser qwen3 --enable-auto-tool-choice --tool-call-parser qwen3_coder --default-chat-template-kwargs '{\"enable_thinking\": false}' --enable-prefix-caching --enable-chunked-prefill --speculative-config '{\"method\":\"mtp\",\"num_speculative_tokens\":3}'",
+    // Leave headroom for other Spark services at startup. The fixed 8 GiB
+    // KV-cache allocation remains independent of this utilization threshold.
+    dockerArgs: "--trust-remote-code --gpu-memory-utilization 0.55 --kv-cache-dtype fp8 --reasoning-parser qwen3 --enable-auto-tool-choice --tool-call-parser qwen3_coder --default-chat-template-kwargs '{\"enable_thinking\": false}' --enable-prefix-caching --enable-chunked-prefill --speculative-config '{\"method\":\"mtp\",\"num_speculative_tokens\":3}'",
   },
   {
     key: "nvidia-qwen36-27b-nvfp4",
