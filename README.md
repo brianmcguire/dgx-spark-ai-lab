@@ -44,6 +44,8 @@ Use it on one computer, or run the dashboard separately from a remote NVIDIA com
 
 ## Screenshots
 
+Refreshed September 6, 2026 from the current development dashboard. These previews include interface changes that are not yet in the latest tagged release. Hostnames, network addresses, and local paths use generic examples. Telemetry and saved benchmark values are installation-specific snapshots, not performance guarantees.
+
 ### Health Dashboard
 
 Monitor system health, live vLLM throughput, request activity, latency, and retained performance trends.
@@ -71,6 +73,13 @@ The dashboard combines live inference telemetry with retained host metrics so mo
 | Endpoint health | `/v1/models`, `/metrics`, gateway-to-vLLM connectivity, and a synthetic completion probe with measured latency |
 
 When vLLM metrics are configured, live inference cards refresh every five seconds. Retained performance charts correlate throughput, request pressure, and latency with GPU, memory, CPU, disk, network, and process activity over time. Optional collectors are capability-driven, so sections such as PM2, vLLM latency histograms, or speculative decoding are shown only when the configured environment exposes them.
+
+<details>
+<summary>View the updated performance charts</summary>
+
+![DGX Spark AI Lab performance trends with distinct chart colors](docs/images/performance-trends.png)
+
+</details>
 
 When the separately installed [Spark Doctor](https://github.com/joeynyc/spark-doctor) integration is enabled and detected, the dashboard exposes an on-demand DGX diagnostic action and folds its latest result into the health view. Clean installations hide these controls. See [Third-Party Notices](THIRD_PARTY_NOTICES.md) for attribution.
 
@@ -139,6 +148,17 @@ The controller also provides explicit **Start**, **Stop**, and **Restart** servi
 ### Settings
 
 Configure the most common installation options from the dashboard without editing JSON by hand. The Settings tab adapts to local, remote, read-only, benchmark, and full-control deployments while keeping privileged configuration outside the browser.
+
+![DGX Spark AI Lab Settings with the development Spark setup preview](docs/images/settings.png)
+
+The development Spark setup preview below shows four aligned units with animated switch connections. This is an unsaved illustration preview, not device discovery or a claim that four devices are monitored.
+
+<details>
+<summary>View the four-Spark illustration preview</summary>
+
+![Four aligned DGX Sparks with rear connections to a switch](docs/images/spark-setup.png)
+
+</details>
 
 #### What You Can Configure
 
