@@ -116,6 +116,8 @@ Review available models, confirm readiness, and replace the active primary model
 
 ![DGX Spark AI Lab model controller](docs/images/model-controller.png)
 
+The current development preview uses equal-height model cards, with repository labels and action buttons aligned along the bottom of each row.
+
 #### Model Inventory and Lifecycle
 
 The controller combines reviewed model recipes with optional Hugging Face cache discovery. Each model card identifies its provider, total and active parameters, architecture, quantization format, context limit, checkpoint size, KV-cache allocation, supported inputs, recommended workload, and configured speculative-decoding method when applicable. For example, the Qwen 3.8 27B NVFP4 profile reports **MTP3** with three draft tokens.
