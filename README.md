@@ -54,10 +54,6 @@ Version 1.4 adds a responsive infrastructure header with bundled Spark artwork, 
 
 ![DGX Spark AI Lab health dashboard](docs/images/health-dashboard.png)
 
-The new header artwork is included in every installation:
-
-![Decorative DGX Spark artwork](public/dgx-spark-flow-v4.png)
-
 #### What the Health Dashboard Monitors
 
 The dashboard combines live inference telemetry with retained host metrics so model behavior can be compared with the resources supporting each request.
