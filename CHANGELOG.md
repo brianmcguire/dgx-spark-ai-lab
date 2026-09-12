@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## Unreleased
 
+## 1.5.1 - 2026-09-12
+
+### Changed
+
+- Condensed telemetry with Overview, Latency, Resources, and Request sizes diagnostic views, expandable series statistics, and collapsible system history.
+- Charts measure their actual container dimensions to use available width without shrinking labels; cards use larger readings and quieter fills.
+- Speculative decoding uses its percentage and acceptance bar without a duplicate gauge. Process and PM2 lists use compact rows and independent heights.
+
+
 ## 1.5.0 - 2026-09-12
 
 ### Added

@@ -323,7 +323,21 @@ function LiveMetricCard({ label, value, unit = "", detail, tone = "default", met
 }
 
 function TrendChart({ points = [], series = [], min = 0, max, height = 142, hoverIndex = null, onHoverIndex, thresholds = [] }) {
-  const width = 640;
+  const chartRef = useRef(null);
+  const [chartSize, setChartSize] = useState({ width: 640, height });
+  const hasChartData = points.some((point) => series.some((item) => point[item.field] != null && Number.isFinite(Number(point[item.field]))));
+  useEffect(() => {
+    if (!chartRef.current) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
+        setChartSize({ width: entry.contentRect.width, height: entry.contentRect.height });
+      }
+    });
+    observer.observe(chartRef.current);
+    return () => observer.disconnect();
+  }, [hasChartData]);
+  const width = chartSize.width;
+  height = chartSize.height;
   const pad = { top: 12, right: 12, bottom: 24, left: 34 };
   const plotted = points;
   const values = plotted.flatMap((point) => series.map((item) => point[item.field]).filter((value) => value != null && Number.isFinite(Number(value))));
@@ -374,6 +388,7 @@ function TrendChart({ points = [], series = [], min = 0, max, height = 142, hove
 
   return (
     <svg
+      ref={chartRef}
       className="trend-chart"
       viewBox={`0 0 ${width} ${height}`}
       role="img"
@@ -461,7 +476,7 @@ function TrendCard({ title, value, subtitle, points, series, min, max, hoverInde
       </div>
       <TrendChart points={points} series={series} min={min} max={max} hoverIndex={hoverIndex} onHoverIndex={onHoverIndex} thresholds={thresholds} />
       {showStats && (
-        <div className="trend-stats">
+        <details className="trend-stat-details"><summary>Series statistics</summary><div className="trend-stats">
           <div className="trend-stats-head"><span>Series</span><span>{hoverIndex == null ? "Last" : formatTimeLabel(activePoint.collectedAt)}</span><span>Average</span><span>Maximum</span></div>
           {series.map((item) => {
             const values = points.map((point) => Number(point[item.field])).filter(Number.isFinite);
@@ -476,7 +491,7 @@ function TrendCard({ title, value, subtitle, points, series, min, max, hoverInde
               </div>
             );
           })}
-        </div>
+        </div></details>
       )}
     </section>
   );
@@ -667,7 +682,7 @@ function PerformanceTrendsSection({ history = [] }) {
         </div>
       </div>
       <LlmTrendsPanel history={history} />
-      <TrendsPanel history={history} />
+      <details className="telemetry-disclosure"><summary>System overview history <span>Health, memory, GPU and processes</span></summary><TrendsPanel history={history} /></details>
     </section>
   );
 }
@@ -691,6 +706,7 @@ function DistributionBars({ title, subtitle, bands = [], color = CHART_COLORS.te
 }
 
 function InferenceDiagnosticsPanel({ dgx, liveVllm, history = [] }) {
+  const [diagnosticView, setDiagnosticView] = useState("overview");
   const [rangeMinutes, setRangeMinutes] = useState(60);
   const [hoverIndex, setHoverIndex] = useState(null);
   const metrics = liveVllm?.ok ? liveVllm.metrics : dgx?.vllm?.metrics;
@@ -759,13 +775,17 @@ function InferenceDiagnosticsPanel({ dgx, liveVllm, history = [] }) {
         </div>
       </div>
 
+      <div className="diagnostic-view-control" role="group" aria-label="Diagnostic view">
+        {[["overview", "Overview"], ["latency", "Latency"], ["resources", "Resources"], ["requests", "Request sizes"]].map(([key, label]) => <button type="button" key={key} aria-pressed={diagnosticView === key} onClick={() => setDiagnosticView(key)}>{label}</button>)}
+      </div>
+      <div hidden={diagnosticView !== "overview"}>
       <div className="diagnostic-summary-grid">
         <section className="diagnostic-block speculative-block">
           <div className="diagnostic-block-title">
             <div><h3>Speculative decoding</h3><p>MTP draft-token efficiency for the active model.</p></div>
             <strong>{acceptedPct == null ? "n/a" : `${number.format(acceptedPct)}% accepted`}</strong>
           </div>
-          <SemiGauge percent={acceptedPct || 0} value={acceptedPct == null ? "n/a" : `${number.format(acceptedPct)}%`} label="Speculative decode acceptance" />
+
           <div className="spec-meter" aria-label={`${number.format(acceptedPct || 0)} percent of speculative tokens accepted`}>
             <i className="accepted" style={{ width: `${acceptedPct || 0}%` }} />
             <i className="rejected" style={{ width: `${rejectedPct}%` }} />
@@ -799,6 +819,8 @@ function InferenceDiagnosticsPanel({ dgx, liveVllm, history = [] }) {
         </section>
       </div>
 
+      </div>
+      <div hidden={diagnosticView !== "latency"}>
       <div className="diagnostic-section-head"><div><h3>Latency Percentiles</h3><p>Hover any chart to inspect the same retained timestamp across all four.</p></div><span>{points.length} samples</span></div>
       <div className="latency-diagnostic-grid">
         {latencyCards.map((card) => (
@@ -819,12 +841,16 @@ function InferenceDiagnosticsPanel({ dgx, liveVllm, history = [] }) {
         ))}
       </div>
 
+      </div>
+      <div hidden={diagnosticView !== "requests"}>
       <div className="diagnostic-section-head"><div><h3>Request Shape</h3><p>Lifetime request counts grouped by prompt and generated-token size.</p></div></div>
       <div className="distribution-grid">
         <DistributionBars title="Prompt-size distribution" subtitle="Prefill tokens per request" bands={metrics?.requestSize?.prompt || []} color={CHART_COLORS.cyan} />
         <DistributionBars title="Output-size distribution" subtitle="Generated tokens per request" bands={metrics?.requestSize?.output || []} color={CHART_COLORS.teal} />
       </div>
 
+      </div>
+      <div hidden={diagnosticView !== "resources"}>
       <div className="diagnostic-section-head"><div><h3>Resource Pressure</h3><p>DGX host utilization during inference and model loading.</p></div></div>
       <div className="resource-diagnostic-grid">
         <TrendCard
@@ -881,6 +907,7 @@ function InferenceDiagnosticsPanel({ dgx, liveVllm, history = [] }) {
           showStats
           valueFormatter={formatBytesRate}
         />
+      </div>
       </div>
     </section>
   );
