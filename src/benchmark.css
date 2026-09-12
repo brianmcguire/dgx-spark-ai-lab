@@ -1,0 +1,66 @@
+/* Benchmark performance overview, scoped to the lab. */
+.latency-panel {
+  --bench-muted: #a4aec4;
+  --bench-mint: #95f3d2;
+  background: #0c101d;
+  border-color: #263044;
+  padding: clamp(16px, 2.4vw, 36px);
+}
+.latency-panel > .panel-title h2 { font-size: clamp(24px, 3vw, 38px); letter-spacing: -.035em; color: #f1f4fc; }
+.latency-panel > .panel-title p { color: var(--bench-muted); }
+.latency-panel .comparison-kicker,
+.latency-panel .benchmark-section-label,
+.benchmark-overview-stats > div > span {
+  font: 600 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-transform: uppercase;
+  letter-spacing: .075em;
+  color: #abcfcf;
+}
+.latency-panel .benchmark-comparison { padding: 0; border: 0; background: none; margin: 22px 0 28px; }
+.benchmark-overview { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.4fr); gap: 16px; }
+.benchmark-hero, .benchmark-ranking { min-width: 0; border: 1px solid #293448; border-radius: 12px; padding: 24px; }
+.benchmark-hero { background: linear-gradient(135deg, #142731, #111827); display: flex; flex-direction: column; align-items: flex-start; }
+.benchmark-hero-rate { display: flex; align-items: baseline; flex-wrap: wrap; gap: 12px; margin: 28px 0 12px; font-size: clamp(54px, 6.5vw, 96px); line-height: 1; letter-spacing: -.055em; font-weight: 750; color: var(--bench-mint); font-variant-numeric: tabular-nums; }
+.benchmark-hero-rate > span { font-size: 23px; letter-spacing: -.025em; }
+.latency-panel .benchmark-hero h3 { font-size: 20px; line-height: 1.35; overflow-wrap: anywhere; }
+.benchmark-hero-config { color: #b6e2e3; background: #1b3040; border-radius: 4px; padding: 6px 10px; margin-top: 16px; font: 600 11px/1.5 ui-monospace, monospace; }
+.benchmark-hero p { color: var(--bench-muted); font-size: 12px; line-height: 1.6; margin: 18px 0 0; }
+.benchmark-ranking { background: #121526; }
+.latency-panel .benchmark-ranking h3 { font-size: 22px; margin-top: 6px; }
+.latency-panel .benchmark-comparison-head { align-items: flex-start; gap: 16px; margin-bottom: 22px; }
+.latency-panel .benchmark-comparison-head > span { color: var(--bench-muted); }
+.latency-panel .model-throughput-list { gap: 18px; }
+.latency-panel .model-throughput-row { grid-template-columns: minmax(110px, 1fr) minmax(60px, 1.2fr) minmax(95px, .7fr); gap: 12px; }
+.latency-panel .model-throughput-label { color: #c6cce0; font-size: 11px; }
+.latency-panel .model-throughput-track { height: 18px; border: 0; background: #20263a; box-shadow: none; }
+.latency-panel .model-throughput-fill { background: linear-gradient(90deg, #655cbb, #8d89eb); box-shadow: none; }
+.latency-panel .is-leading .model-throughput-fill { background: linear-gradient(90deg, #48ab99, #a1f4d5); }
+.latency-panel .model-throughput-value strong { color: #e1e5f4; font: 700 16px/1.3 ui-monospace, monospace; }
+.latency-panel .is-leading .model-throughput-value strong, .latency-panel .is-leading .model-throughput-label { color: var(--bench-mint); }
+.latency-panel .model-throughput-value span { color: var(--bench-muted); font-size: 10px; line-height: 1.5; }
+.benchmark-overview-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
+.benchmark-overview-stats > div { display: grid; gap: 12px; padding: 20px; background: #121726; border: 1px solid #242e43; border-radius: 10px; }
+.benchmark-overview-stats strong { color: #eff3ff; font-size: 32px; line-height: 1.2; letter-spacing: -.025em; font-variant-numeric: tabular-nums; }
+.benchmark-overview-stats small { color: var(--bench-muted); font-size: 11px; }
+.latency-panel .benchmark-comparison-note { color: var(--bench-muted); font-size: 12px; line-height: 1.6; margin: 14px 0 0; }
+.benchmark-section-label { border-top: 1px solid #293448; padding-top: 22px; margin-bottom: 14px; }
+.latency-panel .benchmark-template-bar, .latency-panel .benchmark-runtime-config, .latency-panel .saved-model-history { background: #111827; border-color: #293448; }
+.latency-panel .saved-model-history-card { background: #0e1422; border-color: #293448; }
+.latency-panel .benchmark-metrics .metric-card { background: #121726; border-color: #293448; }
+.latency-panel .benchmark-mode { background: #121726; border-color: #293448; }
+.latency-panel .benchmark-mode button.active { background: #203b3d; color: #abf6db; }
+.latency-panel .benchmark-history-head > span { overflow-wrap: anywhere; }
+@media (max-width: 1100px) {
+  .benchmark-overview { grid-template-columns: minmax(0, 1fr); }
+  .benchmark-hero-rate { margin-top: 20px; }
+}
+@media (max-width: 600px) {
+  .benchmark-hero, .benchmark-ranking { padding: 18px; }
+  .benchmark-overview-stats { grid-template-columns: 1fr; gap: 8px; }
+  .benchmark-overview-stats > div { padding: 16px; gap: 8px; }
+  .latency-panel .model-throughput-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .latency-panel .model-throughput-track { grid-column: 1 / -1; grid-row: 2; }
+  .latency-panel .benchmark-comparison-head { flex-wrap: wrap; }
+  .latency-panel .benchmark-history-head { flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: reduce) { .latency-panel .model-throughput-fill { transition: none; } }

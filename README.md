@@ -171,6 +171,15 @@ The development Spark setup preview below shows four aligned units with animated
 
 Settings managed by environment variables are displayed as read-only so the effective runtime configuration is clear. Saving writes only approved, non-secret values to the ignored local configuration file; restart the dashboard afterward so every server-side collector and listener uses the updated settings.
 
+### Spark setup illustration
+
+In **Settings → Spark setup**, choose one to four Sparks and either **Independent units** or **Linked group**. The preview updates immediately; saving applies the artwork without a restart. Remote DGX setup also asks for these choices during `npm run setup`. Existing installations default to one Spark and retain the original illustration.
+
+Multiple units reuse the bundled artwork in an aligned, close-packed stack with ground glow only beneath the bottom unit. Linked illustrations use one rear link for two Sparks, a closed three-link ring for three, and one cable per Spark to a switch for four, following [NVIDIA's supported topologies](https://docs.nvidia.com/sync/latest/cluster-assistant.html). Independent units show one simplified rear lead each. These are illustrative cabling examples, not detected wiring or physical placement/ventilation guidance. Pause and reduced-motion preferences apply to the entire stack. The saved `sparkSetup` object contains `count` and `layout` and lives in the dashboard configuration, separately from model checkpoints and benchmark history.
+
+This is a user-configured illustration, **not device discovery, per-node monitoring, or distributed inference setup**. Only the configured compute host and inference endpoint are monitored. The unit count does not imply that additional devices are online or sharing a model; selecting Linked group does not establish a network connection.
+
+
 Credentials, control tokens, SSH keys, model launch recipes, arbitrary commands, and trusted-network security exceptions cannot be edited in the browser. Manage those privileged values through environment variables or reviewed local configuration files. See [Configuration](#configuration) for precedence, advanced profiles, model catalogs, and security details.
 
 ## Why This Project
@@ -426,3 +435,9 @@ Power controls, arbitrary remote command execution, and automatic launch recipes
 ## License
 
 [MIT](LICENSE)
+
+### Running models and archived checkpoints
+
+The Model Controller shows a live count and separate primary/secondary cards with GPU memory readings. Secondary services run independently of primary model switches. Detection requires Linux `/proc`, `nvidia-smi`, and online PM2 service ancestry; the configured primary Docker container is also recognized. It is not a universal inventory of unmanaged, CPU-only, or remote model servers. A running process does not by itself verify inference readiness.
+
+Unavailable checkpoints move into a collapsed **Archived models** section. Reference details and Hugging Face links remain available; the archive does not delete weights or benchmark history and does not assert prior use. Reinstalled checkpoints return to the main catalog.

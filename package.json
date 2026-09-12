@@ -1,6 +1,6 @@
 {
   "name": "ai-operations-lab",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Portable local dashboard for inference health, vLLM telemetry, model control, and repeatable benchmarks.",
   "main": "server/index.js",
   "scripts": {
@@ -16,14 +16,23 @@
     "pm2:restart": "pm2 restart ai-operations-lab",
     "pm2:logs": "pm2 logs ai-operations-lab"
   },
-  "keywords": ["vllm", "dgx-spark", "llm", "inference", "monitoring", "benchmark"],
+  "keywords": [
+    "vllm",
+    "dgx-spark",
+    "llm",
+    "inference",
+    "monitoring",
+    "benchmark"
+  ],
   "author": "Brian McGuire",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/brianmcguire/dgx-spark-ai-lab.git"
   },
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "type": "module",
   "dependencies": {
     "@vitejs/plugin-react": "^6.0.3",

@@ -947,7 +947,9 @@ function counterRate(current, previous, elapsedSeconds) {
 
 function identifyServedModel(models = []) {
   const canonicalNames = new Map(DGX_MODEL_CATALOG.map((model) => [model.servedNames.at(-1), model]));
-  const served = models.find((model) => canonicalNames.has(model.id))
+  const repositoryModel = DGX_MODEL_CATALOG.find((candidate) => models.some((model) => inferHuggingFaceRepo(model) === candidate.repository));
+  const served = models.find((model) => model.id === repositoryModel?.servedNames.at(-1))
+    || models.find((model) => canonicalNames.has(model.id))
     || models.find((model) => model.id !== "qwen3-14b")
     || models[0]
     || null;
@@ -1120,7 +1122,7 @@ async function fetchVllmModels() {
         root.includes(candidate.cacheDirectory) || repository === candidate.repository
       ));
       const applicationAlias = configuredModel?.servedNames?.[0] || null;
-      const isApplicationAlias = Boolean(applicationAlias && model.id === applicationAlias);
+      const isApplicationAlias = Boolean(configuredModel && model.id !== configuredModel.servedNames.at(-1));
       const modalities = configuredModel?.modalities || "Text";
 
       return {
@@ -1318,6 +1320,7 @@ function estimateModelLoadProgress(telemetry, endpointReady) {
 }
 
 async function collectDgxModelControl() {
+  const runningProbe = (await readFile(new URL("./running-models-probe.py", import.meta.url), "utf8")).replaceAll("__PRIMARY_CONTAINER__", MODEL_CONTAINER_NAME).replaceAll("__PRIMARY_SERVICE__", MODEL_SERVICE_NAME);
   const modelInstallTargets = DGX_MODEL_CATALOG.map(({ key, cacheDirectory, readyMarker }) => ({
     key,
     cacheDirectory,
@@ -1403,6 +1406,10 @@ print(json.dumps({
     'logs': logs,
 }))
 PY
+echo __RUNNING__
+python3 - <<'PY'
+${runningProbe}
+PY
 echo __SCRIPT__
 cat ${MODEL_LAUNCH_SCRIPT} 2>/dev/null || true
 `;
@@ -1413,7 +1420,9 @@ cat ${MODEL_LAUNCH_SCRIPT} 2>/dev/null || true
   const [pm2Raw = "", afterInstalled = ""] = afterPm2.split("__INSTALLED__\n");
   const [installedRaw = "", afterVllm = ""] = afterInstalled.split("__VLLM__\n");
   const [vllmRaw = "", afterLoad = ""] = afterVllm.split("__LOAD__\n");
-  const [loadRaw = "", scriptRaw = ""] = afterLoad.split("__SCRIPT__\n");
+  const [loadRaw = "", afterRunning = ""] = afterLoad.split("__RUNNING__\n");
+  const [runningRaw = "", scriptRaw = ""] = afterRunning.split("__SCRIPT__\n");
+  const runningProbeResult = safeJsonParse(runningRaw.trim(), { ok: false, models: [] });
   const pm2List = safeJsonParse(pm2Raw.trim(), []);
   const process = Array.isArray(pm2List) ? pm2List.find((item) => item.name === MODEL_SERVICE_NAME) : null;
   const installProbe = safeJsonParse(installedRaw.trim(), {});
@@ -1448,6 +1457,12 @@ cat ${MODEL_LAUNCH_SCRIPT} 2>/dev/null || true
       memoryUsedGb: Number.isFinite(loadTelemetry.memoryUsedGb) ? loadTelemetry.memoryUsedGb : null,
       memoryAvailableGb: Number.isFinite(loadTelemetry.memoryAvailableGb) ? loadTelemetry.memoryAvailableGb : null,
     },
+    runningModelsAvailable: runningProbeResult.ok === true,
+    runningModels: (runningProbeResult.models || []).map((item) => ({
+      ...item,
+      role: item.serviceName === MODEL_SERVICE_NAME ? "primary" : "secondary",
+      label: DGX_MODEL_CATALOG.find((model) => model.repository === item.repository)?.label || item.repository,
+    })),
     activeModelKey: active?.key || null,
     loadingModelKey,
     loadProgress,
@@ -2289,7 +2304,9 @@ PY
     }))
     : [];
   const canonicalServedNames = new Set(DGX_MODEL_CATALOG.map((model) => model.servedNames.at(-1)));
-  const loadedVllmModel = vllmModels.find((model) => canonicalServedNames.has(model.id))
+  const loadedIdentity = identifyServedModel(vllmModels);
+  const loadedVllmModel = vllmModels.find((model) => model.id === loadedIdentity.id)
+    || vllmModels.find((model) => canonicalServedNames.has(model.id))
     || vllmModels.find((model) => model.id !== "qwen3-14b")
     || vllmModels[0]
     || null;
@@ -2675,7 +2692,9 @@ createServer(async (req, res) => {
       if (req.method === "POST") {
         assertSettingsAccess(req);
         try {
-          return sendJson(res, 200, await saveEditableSettings(CONFIG, await readJsonBody(req)));
+          const result = await saveEditableSettings(CONFIG, await readJsonBody(req));
+          if (lastSnapshot?.config) lastSnapshot.config.sparkSetup = { ...CONFIG.sparkSetup };
+          return sendJson(res, 200, result);
         } catch (error) {
           return sendJson(res, 400, { error: error.message });
         }

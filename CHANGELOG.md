@@ -4,6 +4,26 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## Unreleased
 
+## 1.5.0 - 2026-09-12
+
+### Added
+
+- Live primary and secondary LLM cards with a running-model count and per-service GPU memory readings. The Linux probe maps GPU processes to online PM2 services, including the configured primary Docker container; unsupported or failed probes display unavailable status.
+- Collapsible archive for unavailable checkpoints, preserving specifications and model links without inactive launch controls. Installed, loading, and running models remain in the main catalog.
+- Configurable one-to-four Spark illustrations and independent or linked layouts, explicitly separate from device discovery and distributed inference.
+
+### Changed
+
+- Compact green and blue gradient model headers distinguish primary and secondary roles, enlarge model names and memory values, and stack on mobile.
+- Connection aliases are expandable to keep the controller header concise.
+- Benchmark presentation uses clearer performance summaries, charts, and configuration-aware history.
+
+### Fixed
+
+- Canonical checkpoint names take precedence over shared compatibility aliases in model and benchmark presentation.
+- Secondary model cards show their running status while primary controls continue to target only the primary service.
+
+
 ## 1.4.0 - 2026-09-06
 
 ### Added

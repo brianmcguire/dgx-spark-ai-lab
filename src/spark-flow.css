@@ -15,6 +15,14 @@
 }
 
 .spark-flow-scene { display: block; width: 100%; height: auto; overflow: visible; }
+.spark-flow[data-count="2"], .spark-flow[data-count="3"], .spark-flow[data-count="4"] { max-width: 34rem; justify-self: center; }
+.spark-setup-editor { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.5rem; align-items: center; }
+.spark-setup-fields { display: grid; gap: 1rem; }
+.spark-setup-help { color: #91a7a1; font-size: 0.85rem; line-height: 1.6; }
+.spark-setup-preview { min-width: 0; padding: 1rem; border: 1px solid var(--lab-blue-border-soft); border-radius: 0.75rem; background: #07131c; }
+.spark-setup-preview > span { display: block; margin-bottom: 1rem; color: #82caff; font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.spark-setup-preview .spark-flow { max-width: 28rem; margin-inline: auto; }
+@media (max-width: 700px) { .spark-setup-editor { grid-template-columns: minmax(0, 1fr); } }
 .spark-underglow { opacity: 1; animation: spark-glow-breathe 4.8s ease-in-out infinite; }
 .spark-cable path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
 .spark-cable-sheath { stroke: #171525; stroke-width: 9; }

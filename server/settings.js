@@ -1,7 +1,10 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
+import { normalizeSparkSetup } from "../src/spark-setup.js";
 
 const EDITABLE_PATHS = {
+  "sparkSetup.count": null,
+  "sparkSetup.layout": null,
   "dashboard.title": "DASHBOARD_TITLE",
   "dashboard.brand": null,
   "dashboard.subtitle": null,
@@ -90,6 +93,7 @@ function requireComputePath(value, label) {
 
 function validate(values, config) {
   const result = clone(values);
+  result.sparkSetup = normalizeSparkSetup(result.sparkSetup);
   result.dashboard.title = requireString(result.dashboard.title, "Dashboard title", { max: 100 });
   result.dashboard.brand = requireString(result.dashboard.brand, "Dashboard brand", { max: 60 });
   result.dashboard.subtitle = requireString(result.dashboard.subtitle, "Dashboard subtitle", { max: 180 });
@@ -128,6 +132,7 @@ function validate(values, config) {
 export function editableSettings(config) {
   const output = {};
   for (const path of Object.keys(EDITABLE_PATHS)) setPath(output, path, getPath(config, path));
+  output.sparkSetup = normalizeSparkSetup(config.sparkSetup);
   return output;
 }
 
@@ -175,9 +180,14 @@ export async function saveEditableSettings(config, payload, { env = process.env 
 
   const effective = clone(validated);
   for (const path of Object.keys(managed)) setPath(effective, path, getPath(current, path));
+  // Only the decorative setup can be applied live. Connections and controls
+  // continue using the running configuration until an explicit service restart.
+  config.sparkSetup = { ...effective.sparkSetup };
+  const restartRequired = Object.keys(EDITABLE_PATHS).some(path =>
+    !path.startsWith("sparkSetup.") && getPath(current, path) !== getPath(effective, path));
   return {
     values: effective,
     managed,
-    restartRequired: true,
+    restartRequired,
   };
 }

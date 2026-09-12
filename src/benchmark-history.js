@@ -84,6 +84,11 @@ export function catalogModelPresentations(catalogModels = []) {
       if (identity) entries.push([identity, model]);
     }
   }
+  // A shared compatibility alias must not relabel a historical checkpoint.
+  for (const model of catalogModels || []) {
+    const canonical = model.servedNames?.at(-1);
+    if (canonical) entries.push([canonical, model]);
+  }
   return new Map(entries);
 }
 

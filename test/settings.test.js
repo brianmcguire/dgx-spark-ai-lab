@@ -4,6 +4,52 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { saveEditableSettings, settingsResponse } from "../server/settings.js";
+import { publicConfig } from "../server/config.js";
+import { normalizeSparkSetup, sparkStackUnits } from "../src/spark-setup.js";
+
+test("Spark setup defaults safely and rejects unsupported counts and layouts", () => {
+  assert.deepEqual(normalizeSparkSetup(), { count: 1, layout: "independent" });
+  for (const count of [0, 5, -1, 1.5, "3", true]) {
+    assert.throws(() => normalizeSparkSetup({ count }), /whole number/);
+  }
+  assert.throws(() => normalizeSparkSetup({ layout: "auto-discovered" }), /independent or linked/);
+  for (const count of [1, 2, 3, 4]) {
+    const units = sparkStackUnits(count);
+    assert.equal(units.length, count);
+    assert.equal(new Set(units.map(unit => unit.index)).size, count);
+    assert(units.every(unit => unit.x === 0));
+    assert(units.every((unit, index) => unit.y === index * 62));
+    assert(units.every(unit => unit.y + 230 <= 230 + (count - 1) * 62));
+  }
+});
+
+test("Spark-only settings persist, apply live, and leave monitoring and protected state alone", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "ai-lab-spark-setup-"));
+  try {
+    const config = fixture(join(directory, "dashboard.local.json"));
+    await writeFile(config.configuredPath, JSON.stringify({ security: { controlToken: "preserved" }, paths: { data: "/private/history" } }));
+    const beforeCompute = structuredClone(config.compute);
+    const beforeController = structuredClone(config.controller);
+    for (const count of [1, 2, 3, 4]) for (const layout of ["independent", "linked"]) {
+      const result = await saveEditableSettings(config, { sparkSetup: { count, layout } }, { env: {} });
+      assert.equal(result.restartRequired, false);
+      const disk = JSON.parse(await readFile(config.configuredPath, "utf8"));
+      assert.deepEqual(disk.sparkSetup, { count, layout });
+      assert.deepEqual(settingsResponse(config, {}).values.sparkSetup, disk.sparkSetup);
+      assert.deepEqual(publicConfig(config).sparkSetup, disk.sparkSetup);
+      assert.equal(disk.security.controlToken, "preserved");
+      assert.equal(disk.paths.data, "/private/history");
+    }
+    assert.deepEqual(config.compute, beforeCompute);
+    assert.deepEqual(config.controller, beforeController);
+    await assert.rejects(saveEditableSettings(config, { sparkSetup: { count: 5 } }, { env: {} }), /whole number/);
+    assert.equal(config.sparkSetup.count, 4);
+    const disk = JSON.parse(await readFile(config.configuredPath, "utf8"));
+    assert.equal(disk.sparkSetup.count, 4);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
 
 function fixture(configuredPath) {
   return {

@@ -11,6 +11,7 @@
     "port": 4174,
     "mode": "readonly"
   },
+  "sparkSetup": { "count": 1, "layout": "independent" },
   "compute": {
     "label": "Local host",
     "connection": "local",

@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { normalizeHistoryModels } from "./history-models.js";
+import { normalizeSparkSetup } from "../src/spark-setup.js";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 
@@ -61,6 +62,7 @@ export async function loadConfig() {
   const defaults = await readJson(defaultPath, true);
   const local = await readJson(configuredPath);
   const config = merge(defaults, local);
+  config.sparkSetup = normalizeSparkSetup(config.sparkSetup);
 
   config.dashboard.host = process.env.HOST || config.dashboard.host;
   config.dashboard.port = envNumber("PORT", config.dashboard.port);
@@ -191,6 +193,7 @@ export function publicConfig(config) {
     logoAlt: config.dashboard.logoAlt,
     subtitle: config.dashboard.subtitle,
     mode: config.dashboard.mode,
+    sparkSetup: normalizeSparkSetup(config.sparkSetup),
     compute: {
       label: config.compute.label,
       host: config.compute.connection === "local" ? "local" : config.compute.host,

@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
+import { normalizeSparkSetup } from "../src/spark-setup.js";
 
 const root = resolve(import.meta.dirname, "..");
 const destination = resolve(root, "config/dashboard.local.json");
@@ -28,6 +29,10 @@ async function main() {
     const sshHost = await ask("SSH host or alias for the compute system", "dgx-spark");
     const inferenceHost = await ask("Hostname or IP serving vLLM", sshHost);
     const remoteHome = await ask("Remote user home", "/home/dgx");
+    stdout.write("Spark illustration only: this does not discover devices or configure distributed inference.\n");
+    const count = Number(await ask("Number of DGX Sparks to display (1-4)", "1"));
+    const layout = count > 1 ? await ask("Spark layout (independent/linked)", "independent") : "independent";
+    template.sparkSetup = normalizeSparkSetup({ count, layout });
     template.compute.host = sshHost;
     template.inference.apiUrl = `http://${inferenceHost}:8000/v1`;
     template.inference.metricsUrl = `http://${inferenceHost}:8000/metrics`;

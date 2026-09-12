@@ -1,3 +1,4 @@
+import { partitionModels } from "./model-archive.js";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
@@ -33,8 +34,10 @@ import {
   summarizeBenchmarkModels,
 } from "./benchmark-history.js";
 import { PROVIDER_LOGO_PATHS } from "./provider-logos.js";
+import { CHART_COLORS } from "./chart-palette.js";
 import SparkFlow from "./SparkFlow.jsx";
 import "./styles.css";
+import "./benchmark.css";
 
 const number = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
 const compactNumber = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
@@ -229,11 +232,11 @@ function MiniSparkline({ values = [] }) {
   const line = points.map((point, index) => `${index ? "L" : "M"} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(" ");
   const area = `${line} L ${width} ${height} L 0 ${height} Z`;
   return (
-    <svg className="metric-sparkline" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-hidden="true">
+    <svg className="metric-sparkline" style={{ "--line-color": CHART_COLORS.cyan }} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-hidden="true">
       <defs>
         <linearGradient id="metric-spark-fill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#a8d83a" stopOpacity="0.48" />
-          <stop offset="100%" stopColor="#76b900" stopOpacity="0.04" />
+          <stop offset="0%" stopColor={CHART_COLORS.cyan} stopOpacity="0.48" />
+          <stop offset="100%" stopColor={CHART_COLORS.cyan} stopOpacity="0.04" />
         </linearGradient>
       </defs>
       <path className="metric-spark-area" d={area} />
@@ -385,9 +388,9 @@ function TrendChart({ points = [], series = [], min = 0, max, height = 142, hove
       <defs>
         {paths.map((item) => (
           <linearGradient key={item.gradientId} id={item.gradientId} x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor={item.color} stopOpacity="0.36" />
-            <stop offset="58%" stopColor={item.color} stopOpacity="0.12" />
-            <stop offset="100%" stopColor={item.color} stopOpacity="0" />
+            <stop offset="0%" stopColor={item.color} stopOpacity="0.46" />
+            <stop offset="58%" stopColor={item.color} stopOpacity="0.18" />
+            <stop offset="100%" stopColor={item.color} stopOpacity="0.025" />
           </linearGradient>
         ))}
       </defs>
@@ -502,7 +505,7 @@ function TrendsPanel({ history = [] }) {
           points={points}
           min={0}
           max={100}
-          series={[{ field: "healthScore", label: "health", color: "#7cf0c2" }]}
+          series={[{ field: "healthScore", label: "health", color: CHART_COLORS.teal }]}
         />
         <TrendCard
           title="DGX memory used"
@@ -511,7 +514,7 @@ function TrendsPanel({ history = [] }) {
           points={points}
           min={0}
           max={100}
-          series={[{ field: "memoryUsedPct", label: "used", color: "#f2c46d" }]}
+          series={[{ field: "memoryUsedPct", label: "used", color: CHART_COLORS.pink }]}
         />
         <TrendCard
           title="GPU utilization"
@@ -520,7 +523,7 @@ function TrendsPanel({ history = [] }) {
           points={points}
           min={0}
           max={100}
-          series={[{ field: "gpuUtil", label: "util", color: "#53b7ff" }]}
+          series={[{ field: "gpuUtil", label: "util", color: CHART_COLORS.cyan }]}
         />
         <TrendCard
           title="Process memory"
@@ -530,8 +533,8 @@ function TrendsPanel({ history = [] }) {
           min={0}
           max={modelAndPm2Max}
           series={[
-            { field: "modelRssMb", label: "models", color: "#34d399" },
-            { field: "pm2MemoryMb", label: "pm2", color: "#c084fc" },
+            { field: "modelRssMb", label: "models", color: CHART_COLORS.teal },
+            { field: "pm2MemoryMb", label: "pm2", color: CHART_COLORS.violet },
           ]}
         />
       </div>
@@ -617,8 +620,8 @@ function LlmTrendsPanel({ history = [] }) {
           subtitle={`Output ${formatRate(latest.generationTokensPerSecond)}`}
           points={points}
           series={[
-            { field: "promptTokensPerSecond", label: "input", color: "#53b7ff" },
-            { field: "generationTokensPerSecond", label: "output", color: "#34d399" },
+            { field: "promptTokensPerSecond", label: "input", color: CHART_COLORS.cyan },
+            { field: "generationTokensPerSecond", label: "output", color: CHART_COLORS.teal },
           ]}
           showStats
           valueFormatter={(value) => formatRate(value)}
@@ -630,8 +633,8 @@ function LlmTrendsPanel({ history = [] }) {
           points={points}
           min={0}
           series={[
-            { field: "vllmRunning", label: "running", color: "#f2c46d" },
-            { field: "vllmWaiting", label: "waiting", color: "#f47b67" },
+            { field: "vllmRunning", label: "running", color: CHART_COLORS.violet },
+            { field: "vllmWaiting", label: "waiting", color: CHART_COLORS.amber },
           ]}
           showStats
         />
@@ -642,8 +645,8 @@ function LlmTrendsPanel({ history = [] }) {
           points={points}
           min={0}
           series={[
-            { field: "ttftP95Seconds", label: "TTFT", color: "#c084fc" },
-            { field: "e2eP95Seconds", label: "end-to-end", color: "#f2c46d" },
+            { field: "ttftP95Seconds", label: "TTFT", color: CHART_COLORS.violet },
+            { field: "e2eP95Seconds", label: "end-to-end", color: CHART_COLORS.amber },
           ]}
           showStats
           valueFormatter={formatLatency}
@@ -669,7 +672,7 @@ function PerformanceTrendsSection({ history = [] }) {
   );
 }
 
-function DistributionBars({ title, subtitle, bands = [], color = "#76b900" }) {
+function DistributionBars({ title, subtitle, bands = [], color = CHART_COLORS.teal }) {
   const maximum = Math.max(1, ...bands.map((band) => band.count || 0));
   return (
     <section className="diagnostic-block distribution-block">
@@ -734,9 +737,9 @@ function InferenceDiagnosticsPanel({ dgx, liveVllm, history = [] }) {
     },
   ];
   const percentileSeries = (prefix) => [
-    { field: `${prefix}P50Seconds`, label: "p50", color: "#a3e635" },
-    { field: `${prefix}P95Seconds`, label: "p95", color: "#f2c46d" },
-    { field: `${prefix}P99Seconds`, label: "p99", color: "#f47b67" },
+    { field: `${prefix}P50Seconds`, label: "p50", color: CHART_COLORS.violet },
+    { field: `${prefix}P95Seconds`, label: "p95", color: CHART_COLORS.amber },
+    { field: `${prefix}P99Seconds`, label: "p99", color: CHART_COLORS.coral },
   ];
 
   return (
@@ -818,8 +821,8 @@ function InferenceDiagnosticsPanel({ dgx, liveVllm, history = [] }) {
 
       <div className="diagnostic-section-head"><div><h3>Request Shape</h3><p>Lifetime request counts grouped by prompt and generated-token size.</p></div></div>
       <div className="distribution-grid">
-        <DistributionBars title="Prompt-size distribution" subtitle="Prefill tokens per request" bands={metrics?.requestSize?.prompt || []} color="#53b7ff" />
-        <DistributionBars title="Output-size distribution" subtitle="Generated tokens per request" bands={metrics?.requestSize?.output || []} color="#a3e635" />
+        <DistributionBars title="Prompt-size distribution" subtitle="Prefill tokens per request" bands={metrics?.requestSize?.prompt || []} color={CHART_COLORS.cyan} />
+        <DistributionBars title="Output-size distribution" subtitle="Generated tokens per request" bands={metrics?.requestSize?.output || []} color={CHART_COLORS.teal} />
       </div>
 
       <div className="diagnostic-section-head"><div><h3>Resource Pressure</h3><p>DGX host utilization during inference and model loading.</p></div></div>
@@ -831,9 +834,9 @@ function InferenceDiagnosticsPanel({ dgx, liveVllm, history = [] }) {
           points={points}
           min={0}
           series={[
-            { field: "memoryUsedGb", label: "used", color: "#f2c46d" },
-            { field: "memoryAvailableGb", label: "available", color: "#a3e635" },
-            { field: "memoryCachedGb", label: "cache", color: "#53b7ff" },
+            { field: "memoryUsedGb", label: "used", color: CHART_COLORS.pink },
+            { field: "memoryAvailableGb", label: "available", color: CHART_COLORS.teal },
+            { field: "memoryCachedGb", label: "cache", color: CHART_COLORS.cyan },
           ]}
           showStats
           valueFormatter={(value) => compact(value, " GB")}
@@ -845,9 +848,9 @@ function InferenceDiagnosticsPanel({ dgx, liveVllm, history = [] }) {
           points={points}
           min={0}
           series={[
-            { field: "cpuUserPct", label: "user", color: "#a3e635" },
-            { field: "cpuSystemPct", label: "system", color: "#53b7ff" },
-            { field: "cpuIowaitPct", label: "I/O wait", color: "#f47b67" },
+            { field: "cpuUserPct", label: "user", color: CHART_COLORS.violet },
+            { field: "cpuSystemPct", label: "system", color: CHART_COLORS.cyan },
+            { field: "cpuIowaitPct", label: "I/O wait", color: CHART_COLORS.amber },
           ]}
           showStats
           valueFormatter={(value) => compact(value, "%")}
@@ -859,8 +862,8 @@ function InferenceDiagnosticsPanel({ dgx, liveVllm, history = [] }) {
           points={points}
           min={0}
           series={[
-            { field: "networkRxBytesPerSecond", label: "receive", color: "#53b7ff" },
-            { field: "networkTxBytesPerSecond", label: "transmit", color: "#a3e635" },
+            { field: "networkRxBytesPerSecond", label: "receive", color: CHART_COLORS.cyan },
+            { field: "networkTxBytesPerSecond", label: "transmit", color: CHART_COLORS.teal },
           ]}
           showStats
           valueFormatter={formatBytesRate}
@@ -872,8 +875,8 @@ function InferenceDiagnosticsPanel({ dgx, liveVllm, history = [] }) {
           points={points}
           min={0}
           series={[
-            { field: "diskReadBytesPerSecond", label: "read", color: "#c084fc" },
-            { field: "diskWriteBytesPerSecond", label: "write", color: "#f2c46d" },
+            { field: "diskReadBytesPerSecond", label: "read", color: CHART_COLORS.violet },
+            { field: "diskWriteBytesPerSecond", label: "write", color: CHART_COLORS.amber },
           ]}
           showStats
           valueFormatter={formatBytesRate}
@@ -937,6 +940,7 @@ function ModelControlPanel() {
     }
   }
 
+  const { available: availableModels, archived: archivedModels } = partitionModels(control?.models, control?.runningModels);
   const service = control?.service;
   const activeModel = control?.models?.find((model) => model.active);
   const activeSpeculativeDecoding = speculativeDecodingLabel(activeModel?.inferenceConfig, null);
@@ -948,7 +952,7 @@ function ModelControlPanel() {
       <div className="panel-title">
         <div>
           <h2>Model Control</h2>
-          <p>Start, stop, or replace the primary vLLM model with an allowlisted checkpoint downloaded on the DGX Spark.</p>
+          <p>Manage your primary model and see every detected running LLM.</p>
         </div>
         <div className="model-control-header-actions">
           <StatusPill ok={serviceReady}>{serviceReady ? "vLLM ready" : serviceOnline ? "model loading" : "model stopped"}</StatusPill>
@@ -956,16 +960,30 @@ function ModelControlPanel() {
         </div>
       </div>
 
+      <div className="running-llms" aria-label="Running LLMs">
+        <div className="running-llms-heading">
+          <div><span className="eyebrow">Live on your Spark</span><h3>{control?.runningModelsAvailable ? `${control.runningModels.length} ${control.runningModels.length === 1 ? "model" : "models"} running` : "Running models"}</h3></div>
+          <span className="running-llms-note">Primary serves your apps · Secondary runs independently</span>
+        </div>
+        {control?.runningModelsAvailable ? (
+          control.runningModels.length ? <div className="running-llms-grid">{control.runningModels.slice().sort((a, b) => (a.role === "primary" ? -1 : 1) - (b.role === "primary" ? -1 : 1)).map((model) => (
+            <article className={`running-llm-card ${model.role === "primary" ? "is-primary" : "is-secondary"}`} key={model.serviceName}>
+              <div className="running-llm-top"><span className="running-role">{model.role === "primary" ? "Primary LLM" : "Secondary LLM"}</span><span className="running-indicator"><i aria-hidden="true" />Running</span></div>
+              <h4>{model.label}</h4>
+              <div className="running-llm-bottom"><span>{model.serviceName}</span><div className="running-memory"><strong>{Number.isFinite(model.gpuMemoryGiB) ? model.gpuMemoryGiB.toFixed(1) : "—"}</strong><span>GiB<small>GPU memory</small></span></div></div>
+            </article>
+          ))}</div> : <p>No running LLMs detected.</p>
+        ) : <p>{control ? "Running LLM status unavailable." : "Checking running LLMs…"}</p>}
+      </div>
+
       <div className="model-service-bar">
         <div>
-          <span>Service</span>
+          <span>Primary service</span>
           <strong>{service?.pm2Status || "checking"}</strong>
           <small>{activeModel ? `${activeModel.provider} · ${activeModel.precision} · ${activeModel.context}${activeSpeculativeDecoding ? ` · ${activeSpeculativeDecoding}` : ""}` : "No model configuration selected"}</small>
         </div>
         <div>
-          <span>Aliases</span>
-          <strong>{service?.servedNames?.length ? service.servedNames.join(", ") : "Not serving"}</strong>
-          <small>Applications continue using their configured alias after a model switch.</small>
+          <details className="model-alias-details"><summary>Connection aliases <span>{service?.servedNames?.length || 0}</span></summary><p>{service?.servedNames?.length ? service.servedNames.join(", ") : "Not serving"}</p></details>
         </div>
         <div className="model-service-actions">
           <button className="primary" onClick={() => sendAction("start")} disabled={Boolean(pending) || serviceOnline || !activeModel}><Play size={15} />Start</button>
@@ -978,7 +996,7 @@ function ModelControlPanel() {
       {control?.lastAction && <div className={`model-control-feedback ${control.lastAction.ok ? "ok" : "error"}`}>{control.lastAction.error || `${control.lastAction.label} at ${formatTimeLabel(control.lastAction.at)}. The panel will show ready once vLLM finishes loading.`}</div>}
 
       <div className="model-control-grid">
-        {(control?.models || []).map((model) => {
+        {availableModels.map((model) => {
           const pendingActivation = pending === `activate:${model.key}`;
           const loading = model.loading || pendingActivation;
           const progress = model.loadProgress || (pendingActivation ? {
@@ -989,8 +1007,11 @@ function ModelControlPanel() {
             memoryUsedGb: control?.service?.memoryUsedGb,
             loadedMemoryGb: 0,
           } : null);
+          const secondaryRunning = control?.runningModels?.some((running) => running.role === "secondary" && running.repository === model.repository);
           const status = model.active
             ? "active"
+            : secondaryRunning
+              ? "secondary running"
             : loading
               ? "loading"
               : model.setupRequired
@@ -1011,7 +1032,7 @@ function ModelControlPanel() {
                   <h3>{model.label}</h3>
                 </div>
               </div>
-              <StatusPill ok={status === "active" || status === "ready"} tone={status}>{status === "loading" && progress ? `loading ${progress.percent}%` : status}</StatusPill>
+              <StatusPill ok={status === "active" || status === "ready" || secondaryRunning} tone={status}>{status === "loading" && progress ? `loading ${progress.percent}%` : status}</StatusPill>
             </div>
             <p>{model.description}</p>
             <dl>
@@ -1068,6 +1089,23 @@ function ModelControlPanel() {
           );
         })}
       </div>
+      {archivedModels.length > 0 && (
+        <details className="model-archive">
+          <summary><span>Archived models <b>{archivedModels.length}</b></span><small>Not installed · retained for reference</small></summary>
+          <p>Catalog entries whose checkpoints are no longer available on this Spark. Reinstall a checkpoint before using it again.</p>
+          <div className="model-archive-grid">
+            {archivedModels.map((model) => (
+              <article className="model-archive-card" key={model.key}>
+                <div className="model-provider-heading"><ProviderMark providerLogo={model.providerLogo} /><div><span className="eyebrow">{model.provider}</span><h3>{model.label}</h3></div></div>
+                <span className="archive-state">Not installed</span>
+                <p>{model.description}</p>
+                <dl><div><dt>Parameters</dt><dd>{model.parameters || "n/a"}</dd></div><div><dt>Format</dt><dd>{model.precision}</dd></div><div><dt>Context profile</dt><dd>{model.context}</dd></div><div><dt>Inputs</dt><dd>{model.modalities || "Text"}</dd></div></dl>
+                <a href={`https://huggingface.co/${model.repository}`} target="_blank" rel="noreferrer">{model.repository} ↗</a>
+              </article>
+            ))}
+          </div>
+        </details>
+      )}
     </section>
   );
 }
@@ -1171,7 +1209,9 @@ function ModelBenchmarkComparison({
       });
   }, [benchmarkType, history, maxTokens, parallel, profile, selectedSuite, suiteId]);
 
-  const maxTps = models[0]?.averageTps || 0;
+  const leader = models[0];
+  const leaderName = leader ? modelPresentation.get(leader.model)?.displayName || leader.model : "No comparable results yet";
+  const maxTps = leader?.averageTps || 0;
   const totalTests = models.reduce((total, item) => total + item.runs, 0);
   const savedSingleRuns = history.filter((entry) => (
     (entry.historyCategory || entry.benchmarkType || "coding") === "coding"
@@ -1181,6 +1221,16 @@ function ModelBenchmarkComparison({
 
   return (
     <section className="benchmark-comparison" aria-labelledby="model-throughput-title">
+      <div className="benchmark-overview">
+        <article className="benchmark-hero">
+          <span className="comparison-kicker">01 / Leading saved throughput</span>
+          <div className="benchmark-hero-rate">{leader ? number.format(leader.averageTps) : "—"}<span>tok/s</span></div>
+          <h3>{leaderName}</h3>
+          <span className="benchmark-hero-config">{leader ? speculativeDecodingLabel(leader.inferenceConfig) : "Awaiting a matching benchmark"}</span>
+          <p>{selectedSuite ? "Mean across complete suite runs, including aggregate throughput for parallel cases." : "Mean generation throughput for the selected scenario and stream count."}</p>
+        </article>
+        <div className="benchmark-ranking">
+
       <div className="benchmark-comparison-head">
         <div>
           <span className="comparison-kicker">Saved benchmark history</span>
@@ -1191,7 +1241,7 @@ function ModelBenchmarkComparison({
 
       {models.length ? (
         <div className="model-throughput-list">
-          {models.map((item) => {
+          {models.map((item, index) => {
             const width = Math.max(5, (item.averageTps / maxTps) * 100);
             const presentation = modelPresentation.get(item.model);
             const baseDisplayName = presentation?.displayName || item.model;
@@ -1201,7 +1251,7 @@ function ModelBenchmarkComparison({
             ].filter(Boolean).join(" · ");
             const displayName = configurationName ? `${baseDisplayName} · ${configurationName}` : baseDisplayName;
             return (
-              <div className="model-throughput-row" key={item.key}>
+              <div className={`model-throughput-row${index === 0 ? " is-leading" : ""}`} key={item.key}>
                 <div className="model-throughput-label" title={item.model}><ProviderMark providerLogo={presentation?.providerLogo} /><span>{displayName}</span></div>
                 <div className="model-throughput-track" aria-label={`${displayName}: ${formatRate(item.averageTps)} average generation throughput`}>
                   <div className="model-throughput-fill" style={{ width: `${width}%` }} />
@@ -1223,6 +1273,13 @@ function ModelBenchmarkComparison({
         </div>
       )}
 
+        </div>
+      </div>
+      <div className="benchmark-overview-stats">
+        <div><span>Compared configurations</span><strong>{models.length}</strong><small>Within the selected comparison</small></div>
+        <div><span>Completed {selectedSuite ? "suites" : "tests"}</span><strong>{totalTests}</strong><small>Saved runs used in this ranking</small></div>
+        <div><span>Leader mean TTFT</span><strong>{leader ? formatProbeMs(leader.averageTtftMs) : "—"}</strong><small>Time to first token</small></div>
+      </div>
       <p className="benchmark-comparison-note">
         {selectedSuite
           ? `Only complete ${selectedSuite.label} runs are ranked. All ${selectedSuite.cases.length} cases are weighted equally; the two-stream case uses aggregate throughput.`
@@ -1270,7 +1327,7 @@ function SavedModelHistory({ history = [], catalogModels = [], benchmarkType = "
           })}
         </div>
       ) : <div className="chart-empty">No saved {benchmarkType === "visual" ? "visual analysis" : "coding"} records were found in the configured data directory.</div>}
-      <p>This inventory shows every model present in persisted history. The leaderboard below applies the selected fair-comparison filter.</p>
+      <p>This inventory shows every model present in persisted history. The leaderboard above applies the selected fair-comparison filter.</p>
     </section>
   );
 }
@@ -1521,7 +1578,7 @@ function LatencyLab() {
       <div className="panel-title">
         <div>
           <h2>Model Benchmark Lab</h2>
-          <p>Coding and visual throughput benchmarks.</p>
+          <p>Performance overview · Coding and visual inference</p>
         </div>
         <StatusPill ok={selectableModels.length > 0}>{selectableModels.length ? `${selectableModels.length} active · ${stagedModels.length} staged` : "endpoint unavailable"}</StatusPill>
       </div>
@@ -1535,6 +1592,19 @@ function LatencyLab() {
         </button>
       </div>
 
+      <ModelBenchmarkComparison
+        history={history}
+        catalogModels={historyPresentationModels}
+        benchmarkType={benchmarkType}
+        suiteId={selectedSuite ? benchmarkPlan : ""}
+        suites={catalog.codingSuites}
+        profile={profile}
+        maxTokens={maxTokens}
+        parallel={parallel}
+        onShowSingleHistory={showSavedSingleHistory}
+      />
+
+      <div className="benchmark-section-label">02 / Configure a benchmark</div>
       {benchmarkType === "coding" && (
         <div className="benchmark-template-bar">
           <label>
@@ -1647,17 +1717,7 @@ function LatencyLab() {
 
       <SavedModelHistory history={history} catalogModels={historyPresentationModels} benchmarkType={benchmarkType} />
 
-      <ModelBenchmarkComparison
-        history={history}
-        catalogModels={historyPresentationModels}
-        benchmarkType={benchmarkType}
-        suiteId={selectedSuite ? benchmarkPlan : ""}
-        suites={catalog.codingSuites}
-        profile={profile}
-        maxTokens={maxTokens}
-        parallel={parallel}
-        onShowSingleHistory={showSavedSingleHistory}
-      />
+
 
       <div className="benchmark-history">
         <div className="benchmark-history-head"><strong>Recent {benchmarkType === "visual" ? "visual analysis" : "coding"} benchmark runs</strong><span>{catalog.endpoint || "vLLM endpoint"}</span></div>
@@ -1841,7 +1901,7 @@ function SettingsToggle({ form, managed, path, label, help, onChange }) {
   );
 }
 
-function SettingsPanel() {
+function SettingsPanel({ onSparkSetupSaved }) {
   const [form, setForm] = useState(null);
   const [managed, setManaged] = useState({});
   const [loading, setLoading] = useState(true);
@@ -1887,7 +1947,10 @@ function SettingsPanel() {
       if (!response.ok) throw new Error(payload.error || `Unable to save settings (${response.status}).`);
       setForm(payload.values);
       setManaged(payload.managed || {});
-      setMessage("Settings saved. Restart the dashboard service to apply connection or listening changes.");
+      onSparkSetupSaved?.(payload.values.sparkSetup);
+      setMessage(payload.restartRequired
+        ? "Settings saved. Spark illustration updated. Restart the dashboard service to apply other changes."
+        : "Settings saved. Spark illustration updated; no restart needed.");
     } catch (saveError) {
       setError(saveError.message);
     } finally {
@@ -1935,6 +1998,18 @@ function SettingsPanel() {
           <SettingsField form={form} managed={managed} path="dashboard.mode" label="Operating mode" help="Controls whether model and benchmark actions are available." options={modeOptions} onChange={update} />
           <SettingsField form={form} managed={managed} path="dashboard.host" label="Listen address" help="Use 127.0.0.1 for local-only access or 0.0.0.0 for trusted-network access." onChange={update} />
           <SettingsField form={form} managed={managed} path="dashboard.port" label="Port" help="Web server port." type="number" onChange={update} />
+        </div>
+      </section>
+
+      <section className="settings-section">
+        <div className="settings-section-title"><h3>Spark setup</h3><p>Describe your hardware for the illustration. This does not discover devices, verify links, or configure distributed inference.</p></div>
+        <div className="spark-setup-editor">
+          <div className="spark-setup-fields">
+            <SettingsField form={form} managed={managed} path="sparkSetup.count" label="Number of Sparks" type="number" help="Display one to four units. Only the configured compute host is monitored." options={[1, 2, 3, 4].map(value => ({ value, label: `${value} Spark${value > 1 ? "s" : ""}` }))} onChange={update} />
+            <SettingsField form={form} managed={managed} path="sparkSetup.layout" label="Spark arrangement" help="Linked adds illustrative rear interconnects; it does not pair devices." options={[{ value: "independent", label: "Independent units" }, { value: "linked", label: "Linked group" }]} onChange={update} />
+            <p className="spark-setup-help">Preview changes immediately. Save Settings to apply the illustration across the dashboard. No restart is needed for this setting.</p>
+          </div>
+          <div className="spark-setup-preview"><span>Illustration preview</span><SparkFlow setup={form.sparkSetup} /></div>
         </div>
       </section>
 
@@ -2211,16 +2286,21 @@ function App() {
   const [activeTab, setActiveTab] = useState("health");
   const [history, setHistory] = useState([]);
   const [liveVllm, setLiveVllm] = useState(null);
+  const sparkSetupRevision = useRef(0);
   const appConfig = snapshot?.config || FALLBACK_CONFIG;
   const tabs = useMemo(() => visibleTabs(appConfig), [appConfig]);
 
   async function refresh(force = false) {
+    const revisionAtStart = sparkSetupRevision.current;
     setLoading(true);
     setError("");
     try {
       const status = await api(`/api/status${force ? "?refresh=1" : ""}`);
       const historyData = await api("/api/history");
-      setSnapshot(status);
+      setSnapshot(current => revisionAtStart === sparkSetupRevision.current ? status : {
+        ...status,
+        config: { ...status.config, sparkSetup: current?.config?.sparkSetup },
+      });
       setHistory(historyData.points || []);
     } catch (err) {
       setError(err.message);
@@ -2320,7 +2400,7 @@ function App() {
                 {appConfig.capabilities?.sparkDoctor ? " Spark Doctor results are folded into the dashboard." : " Inference and system telemetry refresh automatically."}
               </p>
             </div>
-            <SparkFlow active={activeTab === "health"} />
+            <SparkFlow active={activeTab === "health"} setup={appConfig.sparkSetup} />
             <ModelBanner dgx={dgx} />
             <div className="signal-card">
               <Activity size={26} />
@@ -2348,7 +2428,10 @@ function App() {
           <LatencyLab />
         </div>}
         <div className="tab-view settings-view" role="tabpanel" hidden={activeTab !== "settings"}>
-          <SettingsPanel />
+          <SettingsPanel onSparkSetupSaved={sparkSetup => {
+            sparkSetupRevision.current += 1;
+            setSnapshot(current => current ? { ...current, config: { ...current.config, sparkSetup } } : current);
+          }} />
         </div>
       </main>
     </div>
