@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## Unreleased
 
+## 1.5.2 - 2026-09-12
+
+### Fixed
+
+- All line charts and metric sparklines share the same three-stop gradient and fill opacity, with unique SVG gradient identifiers per chart.
+
+
 ## 1.5.1 - 2026-09-12
 
 ### Changed

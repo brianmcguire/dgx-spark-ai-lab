@@ -1,5 +1,5 @@
 import { partitionModels } from "./model-archive.js";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Activity,
@@ -217,7 +217,16 @@ function StatusPill({ ok, tone, children }) {
   return <span className={`status-pill ${resolvedTone}`}>{ok ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}{children}</span>;
 }
 
+function ChartFill({ id, color }) {
+  return <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stopColor={color} stopOpacity="0.46" />
+    <stop offset="58%" stopColor={color} stopOpacity="0.18" />
+    <stop offset="100%" stopColor={color} stopOpacity="0.025" />
+  </linearGradient>;
+}
+
 function MiniSparkline({ values = [] }) {
+  const fillId = useId();
   const clean = values.map(Number).filter(Number.isFinite);
   if (clean.length < 2) return null;
   const width = 220;
@@ -234,12 +243,9 @@ function MiniSparkline({ values = [] }) {
   return (
     <svg className="metric-sparkline" style={{ "--line-color": CHART_COLORS.cyan }} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-hidden="true">
       <defs>
-        <linearGradient id="metric-spark-fill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={CHART_COLORS.cyan} stopOpacity="0.48" />
-          <stop offset="100%" stopColor={CHART_COLORS.cyan} stopOpacity="0.04" />
-        </linearGradient>
+        <ChartFill id={fillId} color={CHART_COLORS.cyan} />
       </defs>
-      <path className="metric-spark-area" d={area} />
+      <path className="metric-spark-area" d={area} style={{ fill: `url(#${fillId})` }} />
       <path className="metric-spark-line" d={line} />
     </svg>
   );
@@ -323,6 +329,7 @@ function LiveMetricCard({ label, value, unit = "", detail, tone = "default", met
 }
 
 function TrendChart({ points = [], series = [], min = 0, max, height = 142, hoverIndex = null, onHoverIndex, thresholds = [] }) {
+  const chartId = useId();
   const chartRef = useRef(null);
   const [chartSize, setChartSize] = useState({ width: 640, height });
   const hasChartData = points.some((point) => series.some((item) => point[item.field] != null && Number.isFinite(Number(point[item.field]))));
@@ -368,7 +375,7 @@ function TrendChart({ points = [], series = [], min = 0, max, height = 142, hove
     if (current.length) segments.push(current);
     return {
       ...item,
-      gradientId: `chart-fill-${item.field.replace(/[^a-zA-Z0-9_-]/g, "-")}-${seriesIndex}`,
+      gradientId: `${chartId}-chart-fill-${item.field.replace(/[^a-zA-Z0-9_-]/g, "-")}-${seriesIndex}`,
       path: segments.map((segment) => segment.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(" ")).join(" "),
       areaPaths: segments.map((segment) => `M ${segment[0].x.toFixed(1)} ${chartBottom.toFixed(1)} L ${segment.map((point) => `${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(" L ")} L ${segment.at(-1).x.toFixed(1)} ${chartBottom.toFixed(1)} Z`),
       last: segments.at(-1)?.at(-1),
@@ -402,11 +409,7 @@ function TrendChart({ points = [], series = [], min = 0, max, height = 142, hove
     >
       <defs>
         {paths.map((item) => (
-          <linearGradient key={item.gradientId} id={item.gradientId} x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor={item.color} stopOpacity="0.46" />
-            <stop offset="58%" stopColor={item.color} stopOpacity="0.18" />
-            <stop offset="100%" stopColor={item.color} stopOpacity="0.025" />
-          </linearGradient>
+          <ChartFill key={item.gradientId} id={item.gradientId} color={item.color} />
         ))}
       </defs>
       <rect className="chart-surface" x={pad.left} y={pad.top} width={usableWidth} height={usableHeight} rx="6" />

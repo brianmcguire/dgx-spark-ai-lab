@@ -1086,7 +1086,7 @@ h1 {
 }
 
 .metric-spark-area {
-  fill: url(#metric-spark-fill);
+  opacity: .28;
 }
 
 .metric-spark-line {
@@ -3742,7 +3742,7 @@ textarea:focus-visible {
 .health-view .trend-head .legend span { font-size: 10px; }
 .health-view .trend-chart { height: 130px; }
 .health-view .trend-card { padding: 16px; border-radius: 12px; background: linear-gradient(135deg, #102129, #071318 70%); }
-.health-view .trend-chart .trend-area { opacity: .28; }
+.trend-chart .trend-area { opacity: .28; }
 .trend-stat-details { margin-top: 8px; font-size: 12px; color: #a9bec6; }
 .trend-stat-details summary { cursor: pointer; padding: 5px 0; }
 .trend-stat-details .trend-stats { margin-top: 7px; }
