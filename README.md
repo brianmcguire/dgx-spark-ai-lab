@@ -441,3 +441,9 @@ Power controls, arbitrary remote command execution, and automatic launch recipes
 The Model Controller shows a live count and separate primary/secondary cards with GPU memory readings. Secondary services run independently of primary model switches. Detection requires Linux `/proc`, `nvidia-smi`, and online PM2 service ancestry; the configured primary Docker container is also recognized. It is not a universal inventory of unmanaged, CPU-only, or remote model servers. A running process does not by itself verify inference readiness.
 
 Unavailable checkpoints move into a collapsed **Archived models** section. Reference details and Hugging Face links remain available; the archive does not delete weights or benchmark history and does not assert prior use. Reinstalled checkpoints return to the main catalog.
+
+### Models archived for future hardware
+
+Merge entries from `config/archive-models.example.json` into your local model catalog to list stored checkpoints that cannot run on the current controller. `archiveOnly: true` disables activation in both the UI and backend, regardless of download completion. It does not automatically unlock when another GPU or host appears; configure and validate a distributed runtime before removing that restriction.
+
+`archiveStatusFile` points to a JSON file on the compute host. The storage workflow writes `state` as `downloading`, `verifying`, `complete`, or `failed`; only `complete` marks the archive installed. Publish that state only after file-size and checksum verification of the main and draft checkpoints. Archived profiles remain visible in the model grid, separate from the collapsed section of missing checkpoints. `requiredSparkCount` and `activationBlockedReason` explain the restriction. The example archives weights only; it is not an executable launch profile.

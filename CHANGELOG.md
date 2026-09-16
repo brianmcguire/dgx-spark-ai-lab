@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.3
+
+- Add storage-only model profiles with visible archive status and disabled hardware-requirement buttons.
+- Reject archive-only activation in the backend before inspecting or stopping services.
+- Include a GLM 5.3 Flash two-Spark archive catalog example. Archive completion is separate from inference validation.
+
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased

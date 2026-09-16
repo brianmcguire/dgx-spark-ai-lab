@@ -1,3 +1,4 @@
+import { activationBlockReason, assertModelActivationAllowed } from "./model-eligibility.js";
 import { createServer } from "node:http";
 import { execFile } from "node:child_process";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
@@ -1321,10 +1322,11 @@ function estimateModelLoadProgress(telemetry, endpointReady) {
 
 async function collectDgxModelControl() {
   const runningProbe = (await readFile(new URL("./running-models-probe.py", import.meta.url), "utf8")).replaceAll("__PRIMARY_CONTAINER__", MODEL_CONTAINER_NAME).replaceAll("__PRIMARY_SERVICE__", MODEL_SERVICE_NAME);
-  const modelInstallTargets = DGX_MODEL_CATALOG.map(({ key, cacheDirectory, readyMarker }) => ({
+  const modelInstallTargets = DGX_MODEL_CATALOG.map(({ key, cacheDirectory, readyMarker, archiveStatusFile }) => ({
     key,
     cacheDirectory,
     readyMarker: readyMarker ? computePath(readyMarker) : null,
+    archiveStatusFile: archiveStatusFile ? computePath(archiveStatusFile) : null,
   }));
   const encodedInstallProbe = Buffer.from(JSON.stringify({
     root: CONTROLLER_PATHS.cache,
@@ -1346,6 +1348,13 @@ probe = json.loads(base64.b64decode('${encodedInstallProbe}').decode('utf-8'))
 root = Path(probe['root'])
 states = {}
 for target in probe['targets']:
+    if target.get('archiveStatusFile'):
+        try:
+            archive = json.loads(Path(target['archiveStatusFile']).read_text())
+        except (OSError, ValueError):
+            archive = {'state': 'not_downloaded'}
+        states[target['key']] = {'downloaded': archive.get('state') == 'complete', 'verified': False, 'archiveState': archive.get('state', 'not_downloaded')}
+        continue
     downloaded = any((root / target['cacheDirectory'] / 'snapshots').glob('*'))
     marker = target.get('readyMarker')
     verified = downloaded and (not marker or Path(marker).is_file())
@@ -1490,7 +1499,11 @@ cat ${MODEL_LAUNCH_SCRIPT} 2>/dev/null || true
         kvCache: model.kvCache,
         speculativeDecoding: model.speculativeDecoding || null,
         inferenceConfig: buildInferenceConfig(model),
-        status: verified ? "ready" : downloaded ? "staged" : "unavailable",
+        archiveOnly: Boolean(model.archiveOnly),
+        archiveState: installState?.archiveState || null,
+        requiredSparkCount: model.requiredSparkCount || null,
+        activationBlockedReason: activationBlockReason(model),
+        status: model.archiveOnly ? (downloaded ? "archived on disk" : installState?.archiveState || "not downloaded") : verified ? "ready" : downloaded ? "staged" : "unavailable",
         description: model.description,
         installed: downloaded,
         verified,
@@ -1514,6 +1527,8 @@ async function runDgxModelControl(input) {
   if (!allowedActions.has(action)) throw new Error("Unsupported model control action.");
   const model = action === "activate" ? getDgxModel(input?.modelKey) : null;
   if (action === "activate" && !model) throw new Error("Select a model from the dashboard catalog.");
+
+  if (model) assertModelActivationAllowed(model);
 
   const currentState = await collectDgxModelControl();
   if (!currentState.ok) throw new Error(currentState.error || "Unable to inspect the Spark model service.");

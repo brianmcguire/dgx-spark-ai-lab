@@ -3766,3 +3766,7 @@ textarea:focus-visible {
 .health-view #pm2 .service-line strong { font-size: 14px; }
 @media (min-width: 1600px) { .health-view .latency-diagnostic-grid, .health-view .resource-diagnostic-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (max-width: 650px) { .telemetry-disclosure summary span { display: block; margin: 6px 0 0; } .diagnostic-view-control { width: 100%; } .diagnostic-view-control button { flex: 1 1 40%; padding: 9px; } .health-view .trend-head { flex-wrap: wrap; } .health-view .trend-head .legend { display: flex; flex-wrap: wrap; gap: 10px; } .health-view .diagnostic-block-title { flex-wrap: wrap; } }
+
+.model-archive-restriction { width: 100%; }
+.model-archive-restriction p { margin: 0 0 12px; font-size: 0.9rem; }
+.model-archive-restriction button { width: 100%; cursor: not-allowed; }

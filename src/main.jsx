@@ -1038,7 +1038,7 @@ function ModelControlPanel() {
             loadedMemoryGb: 0,
           } : null);
           const secondaryRunning = control?.runningModels?.some((running) => running.role === "secondary" && running.repository === model.repository);
-          const status = model.active
+          const status = model.archiveOnly ? model.status : model.active
             ? "active"
             : secondaryRunning
               ? "secondary running"
@@ -1062,7 +1062,7 @@ function ModelControlPanel() {
                   <h3>{model.label}</h3>
                 </div>
               </div>
-              <StatusPill ok={status === "active" || status === "ready" || secondaryRunning} tone={status}>{status === "loading" && progress ? `loading ${progress.percent}%` : status}</StatusPill>
+              <StatusPill ok={status === "active" || status === "ready" || secondaryRunning} tone={model.archiveOnly ? (model.archiveState === "failed" ? "unavailable" : "discovered") : status}>{status === "loading" && progress ? `loading ${progress.percent}%` : status}</StatusPill>
             </div>
             <p>{model.description}</p>
             <dl>
@@ -1073,7 +1073,8 @@ function ModelControlPanel() {
               <div><dt>Checkpoint size</dt><dd>{model.checkpointSize || "n/a"}</dd></div>
               <div><dt>KV cache</dt><dd>{model.kvCache}</dd></div>
               {model.speculativeDecoding && <div><dt>Speculative decoding</dt><dd>{speculativeDecodingLabel(model.inferenceConfig)} · {model.speculativeDecoding.draftTokens} draft tokens</dd></div>}
-              <div><dt>Checkpoint</dt><dd>{model.installed ? "downloaded" : "not found"}</dd></div>
+              <div><dt>Checkpoint</dt><dd>{model.archiveOnly ? (model.installed ? "Archived · checksums verified" : model.archiveState || "not downloaded") : model.installed ? "downloaded" : "not found"}</dd></div>
+              {model.archiveOnly && <div><dt>Required hardware</dt><dd>{model.requiredSparkCount || 2} connected DGX Sparks · runtime validation required</dd></div>}
               <div><dt>Inputs</dt><dd>{model.modalities}</dd></div>
               <div className="model-workload"><dt>Best for</dt><dd>{model.bestFor || "n/a"}</dd></div>
             </dl>
@@ -1105,7 +1106,12 @@ function ModelControlPanel() {
               </div>
             )}
             <div className="model-card-actions">
-              {loading ? (
+              {model.archiveOnly ? (
+                <div className="model-archive-restriction">
+                  <p>{model.activationBlockedReason}</p>
+                  <button className="clear-button" disabled title={model.activationBlockedReason}><AlertTriangle size={15} />Requires {model.requiredSparkCount || 2} DGX Sparks</button>
+                </div>
+              ) : loading ? (
                 <button className="clear-button model-loading-button" disabled><RefreshCcw className="spin" size={15} />Loading {progress?.percent || 0}%</button>
               ) : model.active ? (
                 <button className="clear-button" onClick={() => sendAction("restart")} disabled={Boolean(pending)}><RefreshCcw size={15} />Restart Active</button>

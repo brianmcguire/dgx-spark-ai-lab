@@ -1,0 +1,24 @@
+{
+  "mode": "merge",
+  "models": [{
+    "key": "glm53-flash-exl3-archive",
+    "label": "GLM 5.3 Flash EXL3",
+    "provider": "Z.ai · Mia AI Lab",
+    "repository": "Mia-AiLab/GLM-5.3-Flash-EXL3-TR3-4bpw",
+    "cacheDirectory": "models--Mia-AiLab--GLM-5.3-Flash-EXL3-TR3-4bpw",
+    "servedNames": ["GLM-5.3-Flash-EXL3"],
+    "archiveOnly": true,
+    "archiveStatusFile": "$HOME/models/archive/glm-5.3-flash-exl3/status.json",
+    "requiredSparkCount": 2,
+    "activationBlockedReason": "Stored for future use. Requires two connected DGX Sparks and a validated distributed runtime. Loading is disabled on this controller.",
+    "precision": "EXL3 / TR3 · 4 bits per weight",
+    "parameters": "320B total · 18B active",
+    "architecture": "Multimodal MoE · hybrid sparse and linear attention",
+    "checkpointSize": "178.06 GB total · includes DFlash2",
+    "context": "Not configured · up to 1M native",
+    "kvCache": "Not allocated",
+    "modalities": "Text, image, video",
+    "bestFor": "Future coding, reasoning, and multimodal agent evaluation",
+    "description": "Storage-only archive of GLM 5.3 Flash EXL3 and its DFlash2 draft model. Inference has not been validated. Requires at least two connected DGX Sparks; downloading this archive does not load a model."
+  }]
+}
