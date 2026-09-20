@@ -3,13 +3,17 @@ import subprocess
 from pathlib import Path
 
 
+gpu_process_count = None
+
 def collect():
+    global gpu_process_count
     services = json.loads(subprocess.check_output(['pm2', 'jlist'], text=True, timeout=3))
     gpu = subprocess.check_output(['nvidia-smi', '--query-compute-apps=pid,used_memory', '--format=csv,noheader,nounits'], text=True, timeout=3)
     try:
         container_pid = int(subprocess.check_output(['docker', 'inspect', '--format', '{{.State.Pid}}', '__PRIMARY_CONTAINER__'], text=True, stderr=subprocess.DEVNULL, timeout=3).strip())
     except Exception:
         container_pid = 0
+    gpu_process_count = len([line for line in gpu.splitlines() if line.strip()])
     groups = {}
     for line in gpu.splitlines():
         fields = line.split(',')
@@ -51,6 +55,7 @@ def collect():
     return [{'serviceName': g['serviceName'], 'repository': g['repository'], 'gpuMemoryGiB': round(g['memoryMiB'] / 1024, 2) if g['memoryKnown'] else None} for g in groups.values()]
 
 try:
-    print(json.dumps({'ok': True, 'models': collect()}))
+    models = collect()
+    print(json.dumps({'ok': True, 'models': models, 'gpuProcessCount': gpu_process_count}))
 except Exception:
     print(json.dumps({'ok': False, 'models': []}))

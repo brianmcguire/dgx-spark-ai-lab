@@ -11,7 +11,10 @@
     "port": 4174,
     "mode": "readonly"
   },
-  "sparkSetup": { "count": 1, "layout": "independent" },
+  "sparkSetup": {
+    "count": 1,
+    "layout": "independent"
+  },
   "compute": {
     "label": "Local host",
     "connection": "local",
@@ -24,8 +27,17 @@
     "metricsUrl": "http://127.0.0.1:8000/metrics"
   },
   "services": {
-    "pm2": { "enabled": false, "label": "PM2 services", "connection": "local", "host": "local" },
-    "gateway": { "enabled": false, "label": "LLM gateway", "apiUrl": "http://127.0.0.1:4010/v1" }
+    "pm2": {
+      "enabled": false,
+      "label": "PM2 services",
+      "connection": "local",
+      "host": "local"
+    },
+    "gateway": {
+      "enabled": false,
+      "label": "LLM gateway",
+      "apiUrl": "http://127.0.0.1:4010/v1"
+    }
   },
   "controller": {
     "enabled": false,
@@ -34,13 +46,19 @@
     "containerName": "spark-vllm-primary",
     "port": 8000,
     "home": "$HOME",
-    "launchScript": ""
+    "launchScript": "",
+    "secondaryServices": []
   },
-  "sparkDoctor": { "enabled": false, "directory": "$HOME/src/spark-doctor" },
+  "sparkDoctor": {
+    "enabled": false,
+    "directory": "$HOME/src/spark-doctor"
+  },
   "security": {
     "trustedNetworkOnly": true,
     "controlToken": "",
     "allowUnauthenticatedControl": false
   },
-  "paths": { "data": ".data" }
+  "paths": {
+    "data": ".data"
+  }
 }

@@ -1,3 +1,4 @@
+import { createModelServiceController, secondaryCommand } from "./model-service-controls.js";
 import { activationBlockReason, assertModelActivationAllowed } from "./model-eligibility.js";
 import { createManagedLaunchScript, assertExclusiveModelAvailable } from "./managed-launcher.js";
 import { createServer } from "node:http";
@@ -1468,6 +1469,11 @@ cat ${MODEL_LAUNCH_SCRIPT} 2>/dev/null || true
       memoryUsedGb: Number.isFinite(loadTelemetry.memoryUsedGb) ? loadTelemetry.memoryUsedGb : null,
       memoryAvailableGb: Number.isFinite(loadTelemetry.memoryAvailableGb) ? loadTelemetry.memoryAvailableGb : null,
     },
+    controlBusy: serviceController.busy,
+    selectedModelKey: selectedModel?.key || null,
+    primaryExclusive: Boolean(selectedModel?.exclusiveHost),
+    gpuProcessCount: runningProbeResult.gpuProcessCount ?? null,
+    modelServices: [{ serviceName: MODEL_SERVICE_NAME, label: selectedModel?.label || "Primary model", role: "primary" }, ...CONFIG.controller.secondaryServices.map(item => ({ ...item, role: "secondary" }))].map(item => ({ serviceName: item.serviceName, label: item.label || item.serviceName, role: item.role, status: pm2List.find(proc => proc.name === item.serviceName)?.pm2_env?.status || "missing" })),
     runningModelsAvailable: runningProbeResult.ok === true,
     runningModels: (runningProbeResult.models || []).map((item) => ({
       ...item,
@@ -1501,6 +1507,7 @@ cat ${MODEL_LAUNCH_SCRIPT} 2>/dev/null || true
         kvCache: model.kvCache,
         speculativeDecoding: model.speculativeDecoding || null,
         inferenceConfig: buildInferenceConfig(model),
+        exclusiveHost: Boolean(model.exclusiveHost),
         archiveOnly: Boolean(model.archiveOnly),
         archiveState: installState?.archiveState || null,
         requiredSparkCount: model.requiredSparkCount || null,
@@ -1535,6 +1542,7 @@ async function runDgxModelControl(input) {
   const currentState = await collectDgxModelControl();
   if (!currentState.ok) throw new Error(currentState.error || "Unable to inspect the Spark model service.");
   if (model) assertExclusiveModelAvailable(model, currentState);
+  if (["start", "restart"].includes(action)) assertExclusiveModelAvailable(getDgxModel(currentState.selectedModelKey), currentState);
   if (action === "activate") {
     const selected = currentState.models.find((item) => item.key === model.key);
     if (!selected?.installed) throw new Error(`${model.repository} is not downloaded on the Spark.`);
@@ -1647,6 +1655,25 @@ async function runDgxModelControl(input) {
   await modelControlInFlight;
   return collectDgxModelControl();
 }
+
+const serviceController = createModelServiceController({
+  inspect: collectDgxModelControl,
+  primary: runDgxModelControl,
+  secondary: async (name, action) => {
+    const service = CONFIG.controller.secondaryServices.find(item => item.serviceName === name);
+    if (!service) throw new Error("Unknown secondary service.");
+    const result = await runOnCompute(`export PATH="${CONTROLLER_HOME}/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"; set -e; ${secondaryCommand(service, action)}`, 90000);
+    if (!result.ok) throw new Error(result.stderr || result.message || "Secondary service action failed.");
+    lastModelControlAction = { ok: true, label: `${action === "stop" ? "Stopped" : "Started"} ${service.label || name}`, action, at: new Date().toISOString() };
+  },
+  validateActivation: async (key, state) => {
+    const model = getDgxModel(key);
+    if (!model?.exclusiveHost) throw new Error("Select an exclusive model from the catalog.");
+    assertModelActivationAllowed(model);
+    if (!state.models.find(item => item.key === key)?.installed) throw new Error("The selected model is not downloaded.");
+    createVllmLaunchScript(model); // Validate the launcher before stopping anything.
+  },
+});
 
 function readJsonBody(req, maxBytes = 48 * 1024) {
   return new Promise((resolve, reject) => {
@@ -2747,7 +2774,7 @@ createServer(async (req, res) => {
       if (req.method === "POST") {
         assertWriteAccess(req);
         if (!CONFIG.capabilities.modelControl) return sendJson(res, 403, { error: "Model control is disabled." });
-        return sendJson(res, 200, await runDgxModelControl(await readJsonBody(req)));
+        return sendJson(res, 200, await serviceController.run(await readJsonBody(req)));
       }
       return sendJson(res, 405, { error: "Method not allowed." });
     }

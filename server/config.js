@@ -1,3 +1,4 @@
+import { validateSecondaryServices } from "./model-service-controls.js";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -102,6 +103,7 @@ export async function loadConfig() {
     ffmpegLibraries: `${config.controller.home}/opt/ffmpeg/usr/lib/aarch64-linux-gnu`,
     ...config.controller.paths,
   };
+  config.controller.secondaryServices = validateSecondaryServices(config.controller.secondaryServices || [], config.controller.serviceName);
   if (config.controller.enabled) {
     requireSafeName(config.controller.serviceName, "controller.serviceName");
     requireSafeName(config.controller.containerName, "controller.containerName");

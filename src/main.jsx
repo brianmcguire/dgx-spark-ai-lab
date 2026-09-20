@@ -946,12 +946,18 @@ function ModelControlPanel() {
     };
   }, []);
 
-  async function sendAction(action, modelKey) {
-    const isSwitch = action === "activate" && modelKey !== control?.activeModelKey;
-    const isStop = action === "stop";
-    if ((isSwitch || isStop) && !window.confirm(isSwitch
-      ? "Switch the active vLLM model? The shared LLM endpoint will be unavailable while the new model loads."
-      : "Stop the vLLM model? OpenClaw, A2V, and AI Assessment will not receive LLM responses until it is started again.")) return;
+  async function sendAction(action, modelKey, serviceName) {
+    const isSwitch = ["activate", "activate-exclusive"].includes(action);
+    const isStop = ["stop", "service-stop", "stop-all"].includes(action);
+    const affected = (control?.modelServices || []).filter(service => service.status === "online").map(service => service.label).join(", ");
+    const target = control?.models?.find(model => model.key === modelKey)?.label || "the selected model";
+    const message = action === "activate-exclusive"
+      ? `Stop ${affected || "all other model services"} and load ${target}? Applications and Sentinel will be unavailable during loading. Secondary models will remain stopped while this model runs. Loading can take 10–15 minutes.`
+      : action === "stop-all" ? `Stop all model services (${affected})? Applications and Sentinel will lose LLM responses until you start their models again.`
+      : action === "service-stop" ? `Stop ${serviceName}? Applications using this model will lose LLM responses until you start it again.`
+      : isSwitch ? "Switch the primary model? Its endpoint will be unavailable while the new model loads."
+      : "Stop the primary model? Applications will lose LLM responses until it is started again.";
+    if ((isSwitch || isStop) && !window.confirm(message)) return;
 
     setPending(`${action}:${modelKey || "service"}`);
     setError("");
@@ -959,7 +965,7 @@ function ModelControlPanel() {
       const next = await api("/api/models/control", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action, modelKey }),
+        body: JSON.stringify({ action, modelKey, serviceName }),
       });
       setControl(next);
       window.setTimeout(() => loadControl().catch(() => {}), 2000);
@@ -976,17 +982,19 @@ function ModelControlPanel() {
   const activeSpeculativeDecoding = speculativeDecodingLabel(activeModel?.inferenceConfig, null);
   const serviceReady = service?.state === "ready";
   const serviceOnline = service?.pm2Status === "online";
+  const controlsBusy = Boolean(pending) || Boolean(control?.controlBusy);
+  const selectedModel = control?.models?.find(model => model.key === control?.selectedModelKey);
 
   return (
     <section className="panel wide model-control-panel" id="model-control">
       <div className="panel-title">
         <div>
           <h2>Model Control</h2>
-          <p>Manage your primary model and see every detected running LLM.</p>
+          <p>Start or stop each model service, or free the Spark for an exclusive model.</p>
         </div>
         <div className="model-control-header-actions">
           <StatusPill ok={serviceReady}>{serviceReady ? "vLLM ready" : serviceOnline ? "model loading" : "model stopped"}</StatusPill>
-          <button className="icon-button" onClick={() => loadControl().catch((err) => setError(err.message))} disabled={Boolean(pending)} title="Refresh model status"><RefreshCcw size={16} /></button>
+          <button className="icon-button" onClick={() => loadControl().catch((err) => setError(err.message))} disabled={controlsBusy} title="Refresh model status"><RefreshCcw size={16} /></button>
         </div>
       </div>
 
@@ -1000,12 +1008,24 @@ function ModelControlPanel() {
             <article className={`running-llm-card ${model.role === "primary" ? "is-primary" : "is-secondary"}`} key={model.serviceName}>
               <div className="running-llm-top"><span className="running-role">{model.role === "primary" ? "Primary LLM" : "Secondary LLM"}</span><span className="running-indicator"><i aria-hidden="true" />Running</span></div>
               <h4>{model.label}</h4>
+              {control?.modelServices?.some(service => service.serviceName === model.serviceName) && <button className="stop-button model-service-stop" disabled={controlsBusy} onClick={() => sendAction("service-stop", null, model.serviceName)}><Square size={14} />Stop {model.role === "primary" ? "primary" : "secondary"}</button>}
               <div className="running-llm-bottom"><span>{model.serviceName}</span><div className="running-memory"><strong>{Number.isFinite(model.gpuMemoryGiB) ? model.gpuMemoryGiB.toFixed(1) : "—"}</strong><span>GiB<small>GPU memory</small></span></div></div>
             </article>
           ))}</div> : <p>No running LLMs detected.</p>
         ) : <p>{control ? "Running LLM status unavailable." : "Checking running LLMs…"}</p>}
       </div>
 
+
+      <div className="model-services-controls" aria-label="Model service controls">
+        {(control?.modelServices || []).filter(item => !control?.runningModels?.some(model => model.serviceName === item.serviceName)).map(item => (
+          <div className="model-service-control" key={item.serviceName}>
+            <div><strong>{item.label}</strong><small>{item.role === "primary" ? "Primary" : "Secondary"} · {item.status}</small></div>
+            <button className={item.status === "online" ? "stop-button" : "primary"} disabled={controlsBusy || item.status === "missing" || (item.role === "secondary" && item.status !== "online" && control?.primaryExclusive && service?.pm2Status !== "stopped")} onClick={() => sendAction(item.status === "online" ? "service-stop" : "service-start", null, item.serviceName)}>{item.status === "online" ? <Square size={14} /> : <Play size={14} />}{item.status === "online" ? "Stop" : "Start"}</button>
+          </div>
+        ))}
+        <button className="stop-button" disabled={controlsBusy || !control?.modelServices?.some(item => item.status === "online")} onClick={() => sendAction("stop-all")}><Square size={14} />Stop all models</button>
+        {control?.primaryExclusive && service?.pm2Status !== "stopped" && <small>Stop the exclusive primary model before starting a secondary model.</small>}
+      </div>
       <div className="model-service-bar">
         <div>
           <span>Primary service</span>
@@ -1016,9 +1036,9 @@ function ModelControlPanel() {
           <details className="model-alias-details"><summary>Connection aliases <span>{service?.servedNames?.length || 0}</span></summary><p>{service?.servedNames?.length ? service.servedNames.join(", ") : "Not serving"}</p></details>
         </div>
         <div className="model-service-actions">
-          <button className="primary" onClick={() => sendAction("start")} disabled={Boolean(pending) || serviceOnline || !activeModel}><Play size={15} />Start</button>
-          <button className="stop-button" onClick={() => sendAction("stop")} disabled={Boolean(pending) || !serviceOnline}><Square size={14} />Stop</button>
-          <button className="clear-button" onClick={() => sendAction("restart")} disabled={Boolean(pending) || !activeModel}><RefreshCcw size={15} />Restart</button>
+          <button className="primary" onClick={() => sendAction("start")} disabled={controlsBusy || serviceOnline || !selectedModel}><Play size={15} />Start</button>
+          <button className="stop-button" onClick={() => sendAction("stop")} disabled={controlsBusy || !serviceOnline}><Square size={14} />Stop</button>
+          <button className="clear-button" onClick={() => sendAction("restart")} disabled={controlsBusy || !activeModel}><RefreshCcw size={15} />Restart</button>
         </div>
       </div>
 
@@ -1114,11 +1134,11 @@ function ModelControlPanel() {
               ) : loading ? (
                 <button className="clear-button model-loading-button" disabled><RefreshCcw className="spin" size={15} />Loading {progress?.percent || 0}%</button>
               ) : model.active ? (
-                <button className="clear-button" onClick={() => sendAction("restart")} disabled={Boolean(pending)}><RefreshCcw size={15} />Restart Active</button>
+                <button className="clear-button" onClick={() => sendAction("restart")} disabled={controlsBusy}><RefreshCcw size={15} />Restart Active</button>
               ) : model.setupRequired ? (
                 <button className="clear-button" disabled title="Add a reviewed launch profile to config/models.local.json before starting this checkpoint."><AlertTriangle size={15} />Setup Required</button>
               ) : (
-                <button className="primary" onClick={() => sendAction("activate", model.key)} disabled={!model.installed || Boolean(pending)}><Play size={15} />Replace Primary</button>
+                <button className="primary" onClick={() => sendAction(model.exclusiveHost ? "activate-exclusive" : "activate", model.key)} disabled={!model.installed || controlsBusy}><Play size={15} />{model.exclusiveHost ? "Stop other models and start" : "Replace Primary"}</button>
               )}
             </div>
           </article>

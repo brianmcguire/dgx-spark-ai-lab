@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.5.6
+
+- Add individual primary/secondary model Stop controls and persistent Start controls for stopped services.
+- Add Stop all models and a confirmed exclusive-model switch that waits for GPU processes to exit before loading Mia.
+- Allow only operator-configured secondary PM2 services; serialize controls and block secondary starts while an exclusive primary runs.
+- Retain primary rollback and safely restore paused secondary services after failed exclusive activation.
+
 ## 1.5.5
 
 - Apply the graceful container shutdown sequence to Restart as well as Stop and Replace, preventing a managed runtime from restarting before the prior container releases memory.

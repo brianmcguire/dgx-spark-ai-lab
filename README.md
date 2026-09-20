@@ -454,3 +454,34 @@ Merge entries from `config/archive-models.example.json` into your local model ca
 An operator-managed catalog entry may set `runtime: "managed"` and `launcher` to an absolute compute-host shell script path (or a `$HOME`-relative path). This is trusted local configuration, never browser input. Install and review the runtime separately. The launcher must honor the configured primary port, model aliases, authentication and container name; remain in the foreground; and stop its container on termination. The controller preserves its existing readiness check and rollback behavior.
 
 Set `exclusiveHost: true` for models that need the host's memory without secondary LLMs. Activation is rejected before stopping the primary if secondary model processes are detected or process telemetry cannot be verified. Secondary services are not stopped automatically. Specify a `readyMarker` path, but create the marker file only after inference is independently validated. See `config/managed-models.example.json` for a Mia Flash Next example; adding that entry does not install its launcher or download weights.
+
+### Control primary and secondary model services
+
+The Model Control panel provides a Stop button on each managed running model,
+a Start button for stopped services, and **Stop all models**. Exclusive models
+such as Mia Flash Next offer **Stop other models and start**. Its confirmation
+lists the affected services. The controller validates the checkpoint first,
+stops the configured services, and waits for their GPU processes to exit before
+loading the candidate. Secondary services remain stopped after a successful
+exclusive switch. Stop the exclusive model before restarting a secondary.
+
+Secondary controls are opt-in. Add existing PM2 model services to the trusted
+`controller` section of `config/dashboard.local.json`:
+
+```json
+{
+  "secondaryServices": [
+    { "serviceName": "sentinel-nemotron", "label": "Sentinel Nemotron" }
+  ]
+}
+```
+
+For a Docker-backed secondary, also set its exact `containerName`. Only list
+model services whose PM2 shutdown terminates their model processes. Unconfigured
+services remain visible but cannot be controlled. Unknown telemetry or unmanaged
+running models block the combined action. This does not run `pm2 stop all` or
+stop unrelated applications. A failed candidate uses the primary launcher's
+existing rollback; previously paused secondary services are restarted only when
+fresh telemetry shows no exclusive primary is selected. Shutdown failures may
+leave services stopped; refresh the panel and inspect the error before starting
+them again. `online` describes PM2 status, not completed inference readiness.
