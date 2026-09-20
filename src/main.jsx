@@ -2421,11 +2421,12 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (!snapshot?.config) return;
     if (!tabs.some(({ id }) => id === activeTab)) {
       setActiveTab("health");
       window.history.replaceState(null, "", "#health");
     }
-  }, [activeTab, tabs]);
+  }, [activeTab, tabs, snapshot?.config]);
 
   function handleNavigate(tabId) {
     setActiveTab(tabId);
