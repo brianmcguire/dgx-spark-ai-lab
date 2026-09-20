@@ -447,3 +447,10 @@ Unavailable checkpoints move into a collapsed **Archived models** section. Refer
 Merge entries from `config/archive-models.example.json` into your local model catalog to list stored checkpoints that cannot run on the current controller. `archiveOnly: true` disables activation in both the UI and backend, regardless of download completion. It does not automatically unlock when another GPU or host appears; configure and validate a distributed runtime before removing that restriction.
 
 `archiveStatusFile` points to a JSON file on the compute host. The storage workflow writes `state` as `downloading`, `verifying`, `complete`, or `failed`; only `complete` marks the archive installed. Publish that state only after file-size and checksum verification of the main and draft checkpoints. Archived profiles remain visible in the model grid, separate from the collapsed section of missing checkpoints. `requiredSparkCount` and `activationBlockedReason` explain the restriction. The example archives weights only; it is not an executable launch profile.
+
+
+### Managed serving recipes
+
+An operator-managed catalog entry may set `runtime: "managed"` and `launcher` to an absolute compute-host shell script path (or a `$HOME`-relative path). This is trusted local configuration, never browser input. Install and review the runtime separately. The launcher must honor the configured primary port, model aliases, authentication and container name; remain in the foreground; and stop its container on termination. The controller preserves its existing readiness check and rollback behavior.
+
+Set `exclusiveHost: true` for models that need the host's memory without secondary LLMs. Activation is rejected before stopping the primary if secondary model processes are detected or process telemetry cannot be verified. Secondary services are not stopped automatically. Specify a `readyMarker` path, but create the marker file only after inference is independently validated. See `config/managed-models.example.json` for a Mia Flash Next example; adding that entry does not install its launcher or download weights.

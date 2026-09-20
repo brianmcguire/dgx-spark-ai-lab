@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.4
+
+- Support reviewed local launchers for model-specific serving runtimes.
+- Refuse exclusive-memory model activation while secondary LLMs are running or process telemetry is unavailable, before stopping the primary.
+- Allow primary containers a graceful shutdown before removal.
+
 ## 1.5.3
 
 - Add storage-only model profiles with visible archive status and disabled hardware-requirement buttons.

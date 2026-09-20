@@ -1,4 +1,5 @@
 import { activationBlockReason, assertModelActivationAllowed } from "./model-eligibility.js";
+import { createManagedLaunchScript, assertExclusiveModelAvailable } from "./managed-launcher.js";
 import { createServer } from "node:http";
 import { execFile } from "node:child_process";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
@@ -1181,6 +1182,7 @@ function getDgxModel(modelKey) {
 }
 
 function createVllmLaunchScript(model) {
+  if (model.runtime === "managed") return createManagedLaunchScript(model, computePath(model.launcher));
   if (model.runtime === "docker") return createDockerVllmLaunchScript(model);
   const quantization = model.quantization ? ` --quantization ${model.quantization}` : "";
   const speculativeConfig = model.speculativeConfig ? ` --speculative-config '${model.speculativeConfig}'` : "";
@@ -1532,6 +1534,7 @@ async function runDgxModelControl(input) {
 
   const currentState = await collectDgxModelControl();
   if (!currentState.ok) throw new Error(currentState.error || "Unable to inspect the Spark model service.");
+  if (model) assertExclusiveModelAvailable(model, currentState);
   if (action === "activate") {
     const selected = currentState.models.find((item) => item.key === model.key);
     if (!selected?.installed) throw new Error(`${model.repository} is not downloaded on the Spark.`);
@@ -1596,15 +1599,15 @@ async function runDgxModelControl(input) {
   // PM2 can automatically restart a failed candidate while rollback is trying
   // to restore the prior launch script. Stop the process and remove only its
   // named container on both sides of a replacement to avoid that race.
-  const stopPrimary = `pm2 stop ${MODEL_SERVICE_NAME} || true; docker rm -f ${MODEL_CONTAINER_NAME} >/dev/null 2>&1 || true`;
+  const stopPrimary = `pm2 stop ${MODEL_SERVICE_NAME} || true; docker stop -t 30 ${MODEL_CONTAINER_NAME} >/dev/null 2>&1 || true; docker rm -f ${MODEL_CONTAINER_NAME} >/dev/null 2>&1 || true`;
   const command = action === "stop"
-    ? `pm2 stop ${MODEL_SERVICE_NAME} || true; pm2 save`
+    ? `${stopPrimary}; pm2 save`
     : action === "activate"
       ? `cp ${MODEL_LAUNCH_SCRIPT} ${MODEL_BACKUP_SCRIPT}; ${stopPrimary}; printf '\n%s\n' '${loadMarker}' >> ${MODEL_OUT_LOG}; printf '\n%s\n' '${loadMarker}' >> ${MODEL_ERROR_LOG}; printf '%s' '${encodedScript}' | base64 -d > ${MODEL_LAUNCH_SCRIPT}; chmod 700 ${MODEL_LAUNCH_SCRIPT}; pm2 start ${MODEL_SERVICE_NAME} --update-env; ready=0; ${readinessCheck}; if [ "$ready" -ne 1 ]; then ${stopPrimary}; cp ${MODEL_BACKUP_SCRIPT} ${MODEL_LAUNCH_SCRIPT}; chmod 700 ${MODEL_LAUNCH_SCRIPT}; pm2 start ${MODEL_SERVICE_NAME} --update-env; pm2 save; echo "$failure_reason The prior primary launch script was restored." >&2; exit 1; fi; pm2 save`
       : `pm2 ${action} ${MODEL_SERVICE_NAME} --update-env; pm2 save`;
   const remote = `export PATH="${CONTROLLER_HOME}/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"; set -e; ${command}; pm2 jlist`;
   const label = action === "activate" ? `Switched to ${model.label} (${model.provider})` : `${action[0].toUpperCase()}${action.slice(1)} requested`;
-  const controlTimeout = action === "activate" ? (startupTimeoutSeconds + 120) * 1000 : 30000;
+  const controlTimeout = action === "activate" ? (startupTimeoutSeconds + 180) * 1000 : 90000;
 
   if (action === "activate") {
     const initialMemoryUsedGb = Number(currentState.service?.memoryUsedGb);

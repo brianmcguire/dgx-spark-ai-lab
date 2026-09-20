@@ -1,0 +1,31 @@
+{
+  "mode": "merge",
+  "models": [
+    {
+      "key": "mia-qwen38-flash-next-nvfp4",
+      "label": "Qwen 3.8 Flash Next NVFP4 · Mia",
+      "provider": "Mia AI Lab",
+      "repository": "Mia-AiLab/Qwen3.8-Flash-Next-NVFP4",
+      "cacheDirectory": "models--Mia-AiLab--Qwen3.8-Flash-Next-NVFP4",
+      "readyMarker": "$HOME/.local/share/spark-models/mia-qwen38-flash-next-nvfp4.ready",
+      "servedNames": ["qwen3-14b", "mia-qwen3.8-flash-next-nvfp4"],
+      "runtime": "managed",
+      "launcher": "$HOME/opt/mia-flash-next-install/serve.sh",
+      "exclusiveHost": true,
+      "precision": "NVFP4 / FP8 mixed",
+      "parameters": "180B total · 6B active",
+      "architecture": "Hybrid MoE · SSD-backed PLE",
+      "checkpointSize": "105.94 GB download · packed PLE adds approximately 29 GB",
+      "context": "256K configured",
+      "maxModelLen": 262144,
+      "maxNumSeqs": 4,
+      "maxBatchedTokens": 2048,
+      "kvCache": "FP8 · sized by host memory budget",
+      "modalities": "Text, image, video",
+      "speculativeDecoding": {"method": "MTP", "draftTokens": 3},
+      "startupTimeoutSeconds": 1800,
+      "bestFor": "Coding, tools, and multimodal agents",
+      "description": "Mia's single-Spark Flash Next checkpoint and serving recipe. Requires a separately installed managed launcher and exclusive model memory: stop secondary LLMs before activation. A download alone does not establish inference readiness."
+    }
+  ]
+}
