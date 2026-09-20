@@ -118,7 +118,9 @@ export async function loadConfig() {
     requireAbsolutePath(sparkDoctorDirectory, "sparkDoctor.directory");
   }
   const sparkDoctorConfigured = config.dashboard.mode === "full" && Boolean(config.sparkDoctor.enabled);
+  config.imageGeneration ||= { enabled: false, apiUrl: "" };
   config.capabilities = {
+    imageGeneration: Boolean(config.imageGeneration.enabled && config.imageGeneration.apiUrl && config.dashboard.mode === "full"),
     localCollection: config.compute.connection === "local",
     sshCollection: config.compute.connection === "ssh",
     nvidiaTelemetry: Boolean(config.compute.nvidiaTelemetry),

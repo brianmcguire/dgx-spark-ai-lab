@@ -1,3 +1,4 @@
+import { ImageStudio } from "./image-studio.jsx";
 import { partitionModels } from "./model-archive.js";
 import React, { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -45,6 +46,7 @@ const DASHBOARD_TABS = [
   { id: "health", label: "Health Dashboard", detail: "Health, telemetry, and trends", icon: Activity },
   { id: "controller", label: "Model Controller", detail: "Primary vLLM service control", icon: TerminalSquare },
   { id: "latency", label: "Model Benchmark Lab", detail: "Coding and visual throughput benchmarks", icon: Gauge },
+  { id: "images", label: "Image Studio", detail: "Generate images locally", icon: ImageIcon },
   { id: "settings", label: "Settings", detail: "Identity, connections, and optional services", icon: Settings2 },
 ];
 
@@ -62,6 +64,7 @@ const FALLBACK_CONFIG = {
 function visibleTabs(config) {
   return DASHBOARD_TABS.filter(({ id }) => (
     id === "health" || id === "settings"
+    || (id === "images" && config.capabilities?.imageGeneration)
     || (id === "controller" && config.capabilities?.modelControl)
     || (id === "latency" && config.capabilities?.benchmarks)
   ));
@@ -998,17 +1001,17 @@ function ModelControlPanel() {
         </div>
       </div>
 
-      <div className="running-llms" aria-label="Running LLMs">
+      <div className="running-llms" aria-label="Running models">
         <div className="running-llms-heading">
           <div><span className="eyebrow">Live on your Spark</span><h3>{control?.runningModelsAvailable ? `${control.runningModels.length} ${control.runningModels.length === 1 ? "model" : "models"} running` : "Running models"}</h3></div>
-          <span className="running-llms-note">Primary serves your apps · Secondary runs independently</span>
+          <span className="running-llms-note">Primary serves chat · Other model services run independently</span>
         </div>
         {control?.runningModelsAvailable ? (
           control.runningModels.length ? <div className="running-llms-grid">{control.runningModels.slice().sort((a, b) => (a.role === "primary" ? -1 : 1) - (b.role === "primary" ? -1 : 1)).map((model) => (
             <article className={`running-llm-card ${model.role === "primary" ? "is-primary" : "is-secondary"}`} key={model.serviceName}>
-              <div className="running-llm-top"><span className="running-role">{model.role === "primary" ? "Primary LLM" : "Secondary LLM"}</span><span className="running-indicator"><i aria-hidden="true" />Running</span></div>
+              <div className="running-llm-top"><span className="running-role">{model.kind === "image" ? "Image model" : model.role === "primary" ? "Primary LLM" : "Secondary LLM"}</span><span className="running-indicator"><i aria-hidden="true" />Running</span></div>
               <h4>{model.label}</h4>
-              {control?.modelServices?.some(service => service.serviceName === model.serviceName) && <button className="stop-button model-service-stop" disabled={controlsBusy} onClick={() => sendAction("service-stop", null, model.serviceName)}><Square size={14} />Stop {model.role === "primary" ? "primary" : "secondary"}</button>}
+              {control?.modelServices?.some(service => service.serviceName === model.serviceName) && <button className="stop-button model-service-stop" disabled={controlsBusy} onClick={() => sendAction("service-stop", null, model.serviceName)}><Square size={14} />Stop {model.kind === "image" ? "image model" : model.role === "primary" ? "primary" : "secondary"}</button>}
               <div className="running-llm-bottom"><span>{model.serviceName}</span><div className="running-memory"><strong>{Number.isFinite(model.gpuMemoryGiB) ? model.gpuMemoryGiB.toFixed(1) : "—"}</strong><span>GiB<small>GPU memory</small></span></div></div>
             </article>
           ))}</div> : <p>No running LLMs detected.</p>
@@ -1019,8 +1022,8 @@ function ModelControlPanel() {
       <div className="model-services-controls" aria-label="Model service controls">
         {(control?.modelServices || []).filter(item => !control?.runningModels?.some(model => model.serviceName === item.serviceName)).map(item => (
           <div className="model-service-control" key={item.serviceName}>
-            <div><strong>{item.label}</strong><small>{item.role === "primary" ? "Primary" : "Secondary"} · {item.status}</small></div>
-            <button className={item.status === "online" ? "stop-button" : "primary"} disabled={controlsBusy || item.status === "missing" || (item.role === "secondary" && item.status !== "online" && control?.primaryExclusive && service?.pm2Status !== "stopped")} onClick={() => sendAction(item.status === "online" ? "service-stop" : "service-start", null, item.serviceName)}>{item.status === "online" ? <Square size={14} /> : <Play size={14} />}{item.status === "online" ? "Stop" : "Start"}</button>
+            <div><strong>{item.label}</strong><small>{item.role === "primary" ? "Primary" : "Secondary"} · {item.status}</small>{item.startBlockedReason && <small>{item.startBlockedReason}</small>}</div>
+            <button title={item.startBlockedReason || ""} className={item.status === "online" ? "stop-button" : "primary"} disabled={Boolean(item.startBlockedReason) || controlsBusy || item.status === "missing" || (item.role === "secondary" && item.status !== "online" && control?.primaryExclusive && service?.pm2Status !== "stopped")} onClick={() => sendAction(item.status === "online" ? "service-stop" : "service-start", null, item.serviceName)}>{item.status === "online" ? <Square size={14} /> : <Play size={14} />}{item.status === "online" ? "Stop" : "Start"}</button>
           </div>
         ))}
         <button className="stop-button" disabled={controlsBusy || !control?.modelServices?.some(item => item.status === "online")} onClick={() => sendAction("stop-all")}><Square size={14} />Stop all models</button>
@@ -2483,6 +2486,7 @@ function App() {
         {appConfig.capabilities?.benchmarks && <div className="tab-view benchmark-view" role="tabpanel" hidden={activeTab !== "latency"}>
           <LatencyLab />
         </div>}
+        {appConfig.capabilities?.imageGeneration && <div className="tab-view" role="tabpanel" hidden={activeTab !== "images"}><ImageStudio api={api} /></div>}
         <div className="tab-view settings-view" role="tabpanel" hidden={activeTab !== "settings"}>
           <SettingsPanel onSparkSetupSaved={sparkSetup => {
             sparkSetupRevision.current += 1;

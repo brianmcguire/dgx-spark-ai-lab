@@ -100,3 +100,10 @@ test('configuration rejects injection, duplicate names, and invalid containers',
   assert.throws(() => secondaryCommand({ serviceName: 'sentinel' }, 'delete'));
   assert.equal(secondaryCommand({ serviceName: 'sentinel' }, 'stop'), "pm2 stop 'sentinel'; pm2 save");
 });
+
+test('operator-configured memory conflicts block a secondary start before execution', async () => {
+  const { controller, state, calls } = fixture();
+  state.modelServices[1].startBlockedReason = 'Stop Qwen Image first to free memory.';
+  await assert.rejects(controller.run({action:'service-start', serviceName:'sentinel'}), /Qwen Image/);
+  assert.deepEqual(calls, []);
+});

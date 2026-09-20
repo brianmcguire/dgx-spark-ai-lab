@@ -1,3 +1,4 @@
+import { imageServiceRoute } from "./image-service.js";
 import { createModelServiceController, secondaryCommand } from "./model-service-controls.js";
 import { activationBlockReason, assertModelActivationAllowed } from "./model-eligibility.js";
 import { createManagedLaunchScript, assertExclusiveModelAvailable } from "./managed-launcher.js";
@@ -1324,7 +1325,7 @@ function estimateModelLoadProgress(telemetry, endpointReady) {
 }
 
 async function collectDgxModelControl() {
-  const runningProbe = (await readFile(new URL("./running-models-probe.py", import.meta.url), "utf8")).replaceAll("__PRIMARY_CONTAINER__", MODEL_CONTAINER_NAME).replaceAll("__PRIMARY_SERVICE__", MODEL_SERVICE_NAME);
+  const runningProbe = (await readFile(new URL("./running-models-probe.py", import.meta.url), "utf8")).replaceAll("__PRIMARY_CONTAINER__", MODEL_CONTAINER_NAME).replaceAll("__PRIMARY_SERVICE__", MODEL_SERVICE_NAME).replaceAll("__SECONDARY_CONTAINERS__", JSON.stringify(Object.fromEntries(CONFIG.controller.secondaryServices.filter(item => item.containerName).map(item => [item.containerName, item.serviceName]))));
   const modelInstallTargets = DGX_MODEL_CATALOG.map(({ key, cacheDirectory, readyMarker, archiveStatusFile }) => ({
     key,
     cacheDirectory,
@@ -1473,11 +1474,12 @@ cat ${MODEL_LAUNCH_SCRIPT} 2>/dev/null || true
     selectedModelKey: selectedModel?.key || null,
     primaryExclusive: Boolean(selectedModel?.exclusiveHost),
     gpuProcessCount: runningProbeResult.gpuProcessCount ?? null,
-    modelServices: [{ serviceName: MODEL_SERVICE_NAME, label: selectedModel?.label || "Primary model", role: "primary" }, ...CONFIG.controller.secondaryServices.map(item => ({ ...item, role: "secondary" }))].map(item => ({ serviceName: item.serviceName, label: item.label || item.serviceName, role: item.role, status: pm2List.find(proc => proc.name === item.serviceName)?.pm2_env?.status || "missing" })),
+    modelServices: [{ serviceName: MODEL_SERVICE_NAME, label: selectedModel?.label || "Primary model", role: "primary" }, ...CONFIG.controller.secondaryServices.map(item => ({ ...item, role: "secondary" }))].map(item => ({ serviceName: item.serviceName, label: item.label || item.serviceName, role: item.role, status: pm2List.find(proc => proc.name === item.serviceName)?.pm2_env?.status || "missing", startBlockedReason: CONFIG.controller.secondaryServices.filter(other => other.serviceName !== item.serviceName && ((item.conflictsWith || []).includes(other.serviceName) || (other.conflictsWith || []).includes(item.serviceName)) && pm2List.some(proc => proc.name === other.serviceName && proc.pm2_env?.status === "online")).map(other => `Stop ${other.label || other.serviceName} first to free memory.`).join(" ") || null })),
     runningModelsAvailable: runningProbeResult.ok === true,
     runningModels: (runningProbeResult.models || []).map((item) => ({
       ...item,
       role: item.serviceName === MODEL_SERVICE_NAME ? "primary" : "secondary",
+      kind: CONFIG.controller.secondaryServices.find(service => service.serviceName === item.serviceName)?.kind || "llm",
       label: DGX_MODEL_CATALOG.find((model) => model.repository === item.repository)?.label || item.repository,
     })),
     activeModelKey: active?.key || null,
@@ -1523,7 +1525,7 @@ cat ${MODEL_LAUNCH_SCRIPT} 2>/dev/null || true
         modalities: model.modalities || "Text",
       };
     }).concat(MODEL_DISCOVERY.enabled && MODEL_DISCOVERY.includeUnknown
-      ? buildDiscoveredModels(installProbe?.cacheDirectories, DGX_MODEL_CATALOG)
+      ? buildDiscoveredModels(installProbe?.cacheDirectories, CONFIG.capabilities.imageGeneration ? DGX_MODEL_CATALOG.concat([{cacheDirectory: "models--Qwen--Qwen-Image-2.1"}]) : DGX_MODEL_CATALOG)
       : []),
     lastAction: lastModelControlAction,
   };
@@ -2763,6 +2765,23 @@ createServer(async (req, res) => {
     }
     if (url.pathname === "/api/vllm/live") {
       return sendJson(res, 200, await collectLiveVllmMetrics());
+    }
+    if (url.pathname.startsWith("/api/images/")) {
+      if (!CONFIG.capabilities.imageGeneration) return sendJson(res, 404, {error:"Image generation is not configured."});
+      const suffix = imageServiceRoute(url.pathname, req.method);
+      let body;
+      if (req.method === "POST") { assertWriteAccess(req); body = JSON.stringify(await readJsonBody(req, 24000)); }
+      try {
+        const response = await fetch(`${CONFIG.imageGeneration.apiUrl.replace(/\/$/, "")}${suffix}`, {
+          method: req.method, headers: {"Authorization": `Bearer ${process.env.IMAGE_API_KEY || VLLM_API_KEY}`, "Content-Type":"application/json"}, body, signal: AbortSignal.timeout(30000),
+        });
+        if (response.ok && suffix.startsWith("/images/")) {
+          res.writeHead(200, {"Content-Type":"image/png", "Cache-Control":"private, no-store", "X-Content-Type-Options":"nosniff"});
+          return res.end(Buffer.from(await response.arrayBuffer()));
+        }
+        const data = await response.json();
+        return sendJson(res, response.status, response.ok ? data : {error: data.detail || data.error || "Image service request failed."});
+      } catch { return sendJson(res, 503, {error:"Image service is offline or still starting."}); }
     }
     if (url.pathname === "/api/models/control") {
       if (req.method === "GET") {

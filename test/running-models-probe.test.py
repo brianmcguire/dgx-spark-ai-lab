@@ -34,6 +34,21 @@ class RunningModelsTest(unittest.TestCase):
     def test_stopped_secondary_is_omitted(self):
         result = self.probe(secondary=False)
         self.assertEqual([x['serviceName'] for x in result], ['__PRIMARY_SERVICE__'])
+    def test_secondary_container_is_mapped_to_its_service(self):
+        configured = source.replace('__SECONDARY_CONTAINERS__', '{"image-container":"image-service"}')
+        tree = ast.parse(configured)
+        tree.body = [node for node in tree.body if not isinstance(node, ast.Try)]
+        scope = {}
+        exec(compile(tree, 'probe', 'exec'), scope)
+        def output(command, **kwargs):
+            if command[0] == 'pm2': return json.dumps([{'name':'image-service','pid':99,'pm2_env':{'status':'online'}}])
+            if command[0] == 'docker': return '20' if command[-1] == 'image-container' else '0'
+            return '20, 2048\n'
+        with patch.dict(scope, Path=FakePath), patch.object(scope['subprocess'], 'check_output', side_effect=output):
+            result = scope['collect']()
+            count = scope['gpu_process_count']
+        self.assertEqual(result[0]['serviceName'], 'image-service')
+        self.assertEqual(count, 1)
     def test_probe_error_is_not_empty_success(self):
         with self.assertRaises(RuntimeError): self.probe(fail=True)
 

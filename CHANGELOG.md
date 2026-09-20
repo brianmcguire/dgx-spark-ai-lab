@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.0
+
+- Add optional Image Studio with local Qwen Image 2.1 generation, progress, and PNG downloads.
+- Add authenticated server-side image proxy and an isolated serving example.
+- Track configured secondary Docker models and prevent conflicting image/Sentinel starts.
+
 ## 1.5.7
 
 - Use the base model logo for community checkpoints without supported branding, including Mia Qwen in saved benchmark leaderboards and history.

@@ -3776,3 +3776,11 @@ textarea:focus-visible {
 .model-service-control small { display: block; margin-top: 4px; color: #a4b7be; }
 .model-service-stop { align-self: flex-start; margin-bottom: 12px; }
 @media (max-width: 640px) { .model-service-control { width: 100%; } }
+
+.image-studio { max-width: 1100px; margin: 0 auto; }
+.image-studio-form { display: grid; gap: 14px; margin: 24px 0; }
+.image-studio-form textarea { width: 100%; box-sizing: border-box; resize: vertical; padding: 16px; border: 1px solid #345973; border-radius: 12px; color: #ecf9f4; background: #0c1820; font: inherit; }
+.image-studio-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 20px; }
+.image-studio-actions select { margin-left: 10px; padding: 10px; }
+.image-studio-result { display: grid; gap: 16px; }
+.image-studio-result img { width: 100%; max-width: 768px; height: auto; border-radius: 14px; }

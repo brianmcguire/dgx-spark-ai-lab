@@ -485,3 +485,16 @@ existing rollback; previously paused secondary services are restarted only when
 fresh telemetry shows no exclusive primary is selected. Shutdown failures may
 leave services stopped; refresh the panel and inspect the error before starting
 them again. `online` describes PM2 status, not completed inference readiness.
+
+### Local image generation
+
+The optional **Image Studio** tab generates images through a separate authenticated
+Qwen Image 2.1 service. It provides prompt entry, 512/1024/2048 square outputs,
+generation progress, and PNG downloads. It does not replace the primary chat
+model. See [the deployment example](examples/qwen-image/README.md) for installation,
+memory requirements, research-license restrictions, and configuration. Image editing
+is not yet exposed in this interface.
+
+Secondary model entries may declare `conflictsWith`, an array of other configured
+service names. The dashboard blocks starts in either direction while a conflicting
+service is online. Use this for services that cannot safely share your Spark's memory.

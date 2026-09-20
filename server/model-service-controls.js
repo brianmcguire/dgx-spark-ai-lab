@@ -8,6 +8,7 @@ export function validateSecondaryServices(services, primary) {
       throw new Error('Secondary services need unique, safe PM2 service names.');
     }
     if (service.containerName && !/^[A-Za-z0-9_][A-Za-z0-9._-]*$/.test(service.containerName)) throw new Error('Invalid secondary container name.');
+    if (service.conflictsWith && (!Array.isArray(service.conflictsWith) || service.conflictsWith.some(name => !/^[A-Za-z0-9_][A-Za-z0-9._-]*$/.test(name)))) throw new Error("conflictsWith must contain safe service names.");
     names.add(service.serviceName);
   }
   return services;
@@ -17,7 +18,7 @@ export function secondaryCommand(service, action) {
   validateSecondaryServices([service], '__primary__');
   if (!['start', 'stop'].includes(action)) throw new Error('Unsupported secondary service action.');
   const stopContainer = action === 'stop' && service.containerName
-    ? `; docker stop -t 30 '${service.containerName}' >/dev/null; docker rm '${service.containerName}' >/dev/null` : '';
+    ? `; if docker inspect '${service.containerName}' >/dev/null 2>&1; then docker stop -t 30 '${service.containerName}' >/dev/null; docker rm '${service.containerName}' >/dev/null 2>&1 || true; fi` : '';
   return `pm2 ${action} '${service.serviceName}'${stopContainer}; pm2 save`;
 }
 
@@ -46,6 +47,7 @@ export function createModelServiceController({ inspect, primary, secondary, vali
         if (input.action === 'service-start' || input.action === 'service-stop') {
           const service = services.find(item => item.serviceName === input.serviceName);
           if (!service || service.status === 'missing') throw new Error('Select a configured, existing model service.');
+          if (input.action === 'service-start' && service.startBlockedReason) throw new Error(service.startBlockedReason);
           if (input.action === 'service-start' && service.role !== 'primary' && state.primaryExclusive && state.service.pm2Status !== 'stopped') {
             throw new Error('Stop the exclusive primary model before starting a secondary model.');
           }

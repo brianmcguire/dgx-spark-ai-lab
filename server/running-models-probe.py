@@ -9,10 +9,16 @@ def collect():
     global gpu_process_count
     services = json.loads(subprocess.check_output(['pm2', 'jlist'], text=True, timeout=3))
     gpu = subprocess.check_output(['nvidia-smi', '--query-compute-apps=pid,used_memory', '--format=csv,noheader,nounits'], text=True, timeout=3)
-    try:
-        container_pid = int(subprocess.check_output(['docker', 'inspect', '--format', '{{.State.Pid}}', '__PRIMARY_CONTAINER__'], text=True, stderr=subprocess.DEVNULL, timeout=3).strip())
-    except Exception:
-        container_pid = 0
+    containers = {'__PRIMARY_CONTAINER__': '__PRIMARY_SERVICE__'}
+    containers.update(json.loads('__SECONDARY_CONTAINERS__'.replace('__SECONDARY_' + 'CONTAINERS__', '{}')))
+    container_services = {}
+    for container, service_name in containers.items():
+        try:
+            pid = int(subprocess.check_output(['docker', 'inspect', '--format', '{{.State.Pid}}', container], text=True, stderr=subprocess.DEVNULL, timeout=3).strip())
+            if pid > 0:
+                container_services[pid] = service_name
+        except Exception:
+            pass
     gpu_process_count = len([line for line in gpu.splitlines() if line.strip()])
     groups = {}
     for line in gpu.splitlines():
@@ -35,8 +41,9 @@ def collect():
             except (OSError, StopIteration, ValueError):
                 break
         service = next((s for s in services if s.get('pid', 0) in ancestors and s.get('pm2_env', {}).get('status') == 'online'), None)
-        if not service and container_pid > 0 and container_pid in ancestors:
-            service = next((s for s in services if s.get('name') == '__PRIMARY_SERVICE__' and s.get('pm2_env', {}).get('status') == 'online'), None)
+        if not service:
+            service_name = next((name for pid, name in container_services.items() if pid in ancestors), None)
+            service = next((s for s in services if service_name and s.get('name') == service_name and s.get('pm2_env', {}).get('status') == 'online'), None)
         if not service:
             continue
         repository = None
