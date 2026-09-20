@@ -33,7 +33,7 @@ import {
   speculativeDecodingLabel,
   summarizeBenchmarkModels,
 } from "./benchmark-history.js";
-import { PROVIDER_LOGO_PATHS } from "./provider-logos.js";
+import { PROVIDER_LOGO_PATHS, resolveModelLogo } from "./provider-logos.js";
 import { CHART_COLORS } from "./chart-palette.js";
 import SparkFlow from "./SparkFlow.jsx";
 import "./styles.css";
@@ -84,8 +84,8 @@ const HASH_TO_TAB = {
   settings: "settings",
 };
 
-function ProviderMark({ providerLogo, className = "" }) {
-  const source = PROVIDER_LOGO_PATHS[providerLogo];
+function ProviderMark({ providerLogo, model = {}, className = "" }) {
+  const source = PROVIDER_LOGO_PATHS[resolveModelLogo({ ...model, providerLogo: providerLogo || model.providerLogo })];
   if (!source) return null;
   return <span className={`provider-mark ${className}`.trim()} aria-hidden="true"><img src={source} alt="" /></span>;
 }
@@ -1076,7 +1076,7 @@ function ModelControlPanel() {
           <article className={`model-control-card ${model.active ? "active" : ""} ${loading ? "loading" : ""}`} key={model.key}>
             <div className="model-control-card-head">
               <div className="model-provider-heading">
-                <ProviderMark providerLogo={model.providerLogo} />
+                <ProviderMark model={model} />
                 <div>
                   <span className="eyebrow">{model.provider}</span>
                   <h3>{model.label}</h3>
@@ -1152,7 +1152,7 @@ function ModelControlPanel() {
           <div className="model-archive-grid">
             {archivedModels.map((model) => (
               <article className="model-archive-card" key={model.key}>
-                <div className="model-provider-heading"><ProviderMark providerLogo={model.providerLogo} /><div><span className="eyebrow">{model.provider}</span><h3>{model.label}</h3></div></div>
+                <div className="model-provider-heading"><ProviderMark model={model} /><div><span className="eyebrow">{model.provider}</span><h3>{model.label}</h3></div></div>
                 <span className="archive-state">Not installed</span>
                 <p>{model.description}</p>
                 <dl><div><dt>Parameters</dt><dd>{model.parameters || "n/a"}</dd></div><div><dt>Format</dt><dd>{model.precision}</dd></div><div><dt>Context profile</dt><dd>{model.context}</dd></div><div><dt>Inputs</dt><dd>{model.modalities || "Text"}</dd></div></dl>
@@ -1308,7 +1308,7 @@ function ModelBenchmarkComparison({
             const displayName = configurationName ? `${baseDisplayName} · ${configurationName}` : baseDisplayName;
             return (
               <div className={`model-throughput-row${index === 0 ? " is-leading" : ""}`} key={item.key}>
-                <div className="model-throughput-label" title={item.model}><ProviderMark providerLogo={presentation?.providerLogo} /><span>{displayName}</span></div>
+                <div className="model-throughput-label" title={item.model}><ProviderMark model={{ ...item, ...presentation, displayName }} /><span>{displayName}</span></div>
                 <div className="model-throughput-track" aria-label={`${displayName}: ${formatRate(item.averageTps)} average generation throughput`}>
                   <div className="model-throughput-fill" style={{ width: `${width}%` }} />
                 </div>
@@ -1369,7 +1369,7 @@ function SavedModelHistory({ history = [], catalogModels = [], benchmarkType = "
             const displayName = item.modelLabel || metadata?.displayName || item.model;
             return (
               <article className="saved-model-history-card" key={item.key}>
-                <div className="saved-model-history-name"><ProviderMark providerLogo={metadata?.providerLogo} /><strong>{displayName}</strong></div>
+                <div className="saved-model-history-name"><ProviderMark model={{ ...item, ...metadata, displayName }} /><strong>{displayName}</strong></div>
                 <span>{item.completed} completed · {item.failed} incomplete</span>
                 <dl>
                   <div><dt>Saved records</dt><dd>{item.records}</dd></div>

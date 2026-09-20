@@ -1,3 +1,4 @@
+import { resolveModelLogo } from "../src/provider-logos.js";
 function humanize(value) {
   return String(value || "")
     .replace(/[-_]+/g, " ")
@@ -93,7 +94,7 @@ export function buildCatalogModels(knownModels = [], liveModels = []) {
       servedNames: candidate.servedNames || [],
       displayName: candidate.label,
       provider: candidate.provider || null,
-      providerLogo: candidate.providerLogo || null,
+      providerLogo: resolveModelLogo(candidate),
       label: `${candidate.label} - ${state === "active" ? "Active" : state === "ready" ? "Ready" : state === "staged" ? "Staged" : "Unavailable"}`,
       state,
       selectable: state === "active",

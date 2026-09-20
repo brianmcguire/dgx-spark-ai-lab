@@ -1,3 +1,4 @@
+import { resolveModelLogo } from "../src/provider-logos.js";
 function cleanString(value) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
@@ -19,7 +20,7 @@ export function normalizeHistoryModel(model = {}) {
     servedNames,
     displayName: cleanString(model.displayName || model.label || model.modelLabel) || id,
     provider: cleanString(model.provider),
-    providerLogo: cleanString(model.providerLogo),
+    providerLogo: resolveModelLogo(model) || cleanString(model.providerLogo),
   };
 }
 

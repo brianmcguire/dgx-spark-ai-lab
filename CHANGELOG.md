@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.7
+
+- Use the base model logo for community checkpoints without supported branding, including Mia Qwen in saved benchmark leaderboards and history.
+- Preserve explicit provider logos and retain resolved logos in new benchmark snapshots.
+
 ## 1.5.6
 
 - Add individual primary/secondary model Stop controls and persistent Start controls for stopped services.
