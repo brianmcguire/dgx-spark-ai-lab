@@ -1,6 +1,6 @@
 {
   "name": "ai-operations-lab",
-  "version": "1.5.4",
+  "version": "1.5.5",
   "description": "Portable local dashboard for inference health, vLLM telemetry, model control, and repeatable benchmarks.",
   "main": "server/index.js",
   "scripts": {

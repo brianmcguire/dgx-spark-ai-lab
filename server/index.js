@@ -1604,7 +1604,9 @@ async function runDgxModelControl(input) {
     ? `${stopPrimary}; pm2 save`
     : action === "activate"
       ? `cp ${MODEL_LAUNCH_SCRIPT} ${MODEL_BACKUP_SCRIPT}; ${stopPrimary}; printf '\n%s\n' '${loadMarker}' >> ${MODEL_OUT_LOG}; printf '\n%s\n' '${loadMarker}' >> ${MODEL_ERROR_LOG}; printf '%s' '${encodedScript}' | base64 -d > ${MODEL_LAUNCH_SCRIPT}; chmod 700 ${MODEL_LAUNCH_SCRIPT}; pm2 start ${MODEL_SERVICE_NAME} --update-env; ready=0; ${readinessCheck}; if [ "$ready" -ne 1 ]; then ${stopPrimary}; cp ${MODEL_BACKUP_SCRIPT} ${MODEL_LAUNCH_SCRIPT}; chmod 700 ${MODEL_LAUNCH_SCRIPT}; pm2 start ${MODEL_SERVICE_NAME} --update-env; pm2 save; echo "$failure_reason The prior primary launch script was restored." >&2; exit 1; fi; pm2 save`
-      : `pm2 ${action} ${MODEL_SERVICE_NAME} --update-env; pm2 save`;
+      : action === "restart"
+        ? `${stopPrimary}; pm2 start ${MODEL_SERVICE_NAME} --update-env; pm2 save`
+        : `pm2 ${action} ${MODEL_SERVICE_NAME} --update-env; pm2 save`;
   const remote = `export PATH="${CONTROLLER_HOME}/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"; set -e; ${command}; pm2 jlist`;
   const label = action === "activate" ? `Switched to ${model.label} (${model.provider})` : `${action[0].toUpperCase()}${action.slice(1)} requested`;
   const controlTimeout = action === "activate" ? (startupTimeoutSeconds + 180) * 1000 : 90000;

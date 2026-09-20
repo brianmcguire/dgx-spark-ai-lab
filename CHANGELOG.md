@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.5
+
+- Apply the graceful container shutdown sequence to Restart as well as Stop and Replace, preventing a managed runtime from restarting before the prior container releases memory.
+
 ## 1.5.4
 
 - Support reviewed local launchers for model-specific serving runtimes.
