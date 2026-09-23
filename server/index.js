@@ -454,6 +454,28 @@ const BUILTIN_DGX_MODEL_CATALOG = [
     extraVllmArgs: `--tensor-parallel-size 1 --trust-remote-code --video-pruning-rate 0.5 --max-num-seqs 32 --allowed-local-media-path ${CONTROLLER_PATHS.media} --media-io-kwargs '{"video": {"fps": 2, "num_frames": 128}}'`,
   },
   {
+    key: "nvidia-nemotron-3-diarization",
+    label: "Nemotron 3 Diarization",
+    provider: "NVIDIA",
+    providerLogo: "nvidia",
+    repository: "nvidia/Nemotron-3-Diarization",
+    cacheDirectory: "models--nvidia--Nemotron-3-Diarization",
+    servedNames: [],
+    readyMarker: `${CONTROLLER_HOME}/.local/share/spark-models/nemotron-3-diarization.ready`,
+    secondaryServiceName: "spark-nemotron-diarization",
+    kind: "audio",
+    precision: "FP32",
+    parameters: "99M",
+    architecture: "Streaming Sortformer",
+    checkpointSize: "0.40 GB Transformers · 0.20 GB NeMo",
+    bestFor: "Identifying who spoke when in recordings or live audio",
+    context: "Chunked audio",
+    kvCache: "Not applicable",
+    status: "ready",
+    modalities: "Audio (16 kHz)",
+    description: "Labels speech segments by speaker, for up to eight speakers. Runs as a separate audio service alongside the primary chat model; it does not transcribe speech.",
+  },
+  {
     key: "nvidia-nemotron-35-lightning-30b-a3b-nvfp4",
     label: "Nemotron 3.5 Lightning 30B A3B",
     provider: "NVIDIA",
@@ -1152,7 +1174,7 @@ async function fetchVllmModels() {
       };
     });
 
-    const catalogModels = buildCatalogModels(DGX_MODEL_CATALOG, modelsWithPresentation);
+    const catalogModels = buildCatalogModels(DGX_MODEL_CATALOG.filter((candidate) => !candidate.secondaryServiceName), modelsWithPresentation);
 
     return {
       ok: true,
@@ -1171,7 +1193,7 @@ async function fetchVllmModels() {
       models: [],
       selectableModels: [],
       applicationAliases: [],
-      catalogModels: buildCatalogModels(DGX_MODEL_CATALOG),
+      catalogModels: buildCatalogModels(DGX_MODEL_CATALOG.filter((candidate) => !candidate.secondaryServiceName)),
       historyModels: HISTORY_MODELS,
     };
   } finally {
@@ -1496,6 +1518,8 @@ cat ${MODEL_LAUNCH_SCRIPT} 2>/dev/null || true
 
       return {
         key: model.key,
+        kind: model.kind || "llm",
+        secondaryServiceName: model.secondaryServiceName || null,
         label: model.label,
         provider: model.provider,
         providerLogo: model.providerLogo || null,
@@ -1538,6 +1562,7 @@ async function runDgxModelControl(input) {
   if (!allowedActions.has(action)) throw new Error("Unsupported model control action.");
   const model = action === "activate" ? getDgxModel(input?.modelKey) : null;
   if (action === "activate" && !model) throw new Error("Select a model from the dashboard catalog.");
+  if (model?.secondaryServiceName) throw new Error("Start this model through its separate service control.");
 
   if (model) assertModelActivationAllowed(model);
 

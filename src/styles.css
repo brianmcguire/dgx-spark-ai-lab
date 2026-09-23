@@ -584,6 +584,10 @@ h1 {
   background: rgba(168, 216, 58, 0.18);
   color: var(--lime-bright);
 }
+.status-pill.running {
+  color: var(--lime-bright);
+  background: rgba(168, 216, 58, 0.18);
+}
 
 .status-pill.ready {
   background: rgba(88, 166, 255, 0.16);

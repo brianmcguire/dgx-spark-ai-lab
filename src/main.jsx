@@ -956,8 +956,8 @@ function ModelControlPanel() {
     const target = control?.models?.find(model => model.key === modelKey)?.label || "the selected model";
     const message = action === "activate-exclusive"
       ? `Stop ${affected || "all other model services"} and load ${target}? Applications and Sentinel will be unavailable during loading. Secondary models will remain stopped while this model runs. Loading can take 10–15 minutes.`
-      : action === "stop-all" ? `Stop all model services (${affected})? Applications and Sentinel will lose LLM responses until you start their models again.`
-      : action === "service-stop" ? `Stop ${serviceName}? Applications using this model will lose LLM responses until you start it again.`
+      : action === "stop-all" ? `Stop all model services (${affected})? Applications using them will be unavailable until you start the services again.`
+      : action === "service-stop" ? `Stop ${serviceName}? Applications using this service will be unavailable until you start it again.`
       : isSwitch ? "Switch the primary model? Its endpoint will be unavailable while the new model loads."
       : "Stop the primary model? Applications will lose LLM responses until it is started again.";
     if ((isSwitch || isStop) && !window.confirm(message)) return;
@@ -1009,13 +1009,13 @@ function ModelControlPanel() {
         {control?.runningModelsAvailable ? (
           control.runningModels.length ? <div className="running-llms-grid">{control.runningModels.slice().sort((a, b) => (a.role === "primary" ? -1 : 1) - (b.role === "primary" ? -1 : 1)).map((model) => (
             <article className={`running-llm-card ${model.role === "primary" ? "is-primary" : "is-secondary"}`} key={model.serviceName}>
-              <div className="running-llm-top"><span className="running-role">{model.kind === "image" ? "Image model" : model.role === "primary" ? "Primary LLM" : "Secondary LLM"}</span><span className="running-indicator"><i aria-hidden="true" />Running</span></div>
+              <div className="running-llm-top"><span className="running-role">{model.kind === "image" ? "Image model" : model.kind === "audio" ? "Audio model" : model.role === "primary" ? "Primary LLM" : "Secondary LLM"}</span><span className="running-indicator"><i aria-hidden="true" />Running</span></div>
               <h4>{model.label}</h4>
-              {control?.modelServices?.some(service => service.serviceName === model.serviceName) && <button className="stop-button model-service-stop" disabled={controlsBusy} onClick={() => sendAction("service-stop", null, model.serviceName)}><Square size={14} />Stop {model.kind === "image" ? "image model" : model.role === "primary" ? "primary" : "secondary"}</button>}
+              {control?.modelServices?.some(service => service.serviceName === model.serviceName) && <button className="stop-button model-service-stop" disabled={controlsBusy} onClick={() => sendAction("service-stop", null, model.serviceName)}><Square size={14} />Stop {model.kind === "image" ? "image model" : model.kind === "audio" ? "audio model" : model.role === "primary" ? "primary" : "secondary"}</button>}
               <div className="running-llm-bottom"><span>{model.serviceName}</span><div className="running-memory"><strong>{Number.isFinite(model.gpuMemoryGiB) ? model.gpuMemoryGiB.toFixed(1) : "—"}</strong><span>GiB<small>GPU memory</small></span></div></div>
             </article>
-          ))}</div> : <p>No running LLMs detected.</p>
-        ) : <p>{control ? "Running LLM status unavailable." : "Checking running LLMs…"}</p>}
+          ))}</div> : <p>No running models detected.</p>
+        ) : <p>{control ? "Running model status unavailable." : "Checking running models…"}</p>}
       </div>
 
 
@@ -1060,11 +1060,12 @@ function ModelControlPanel() {
             memoryUsedGb: control?.service?.memoryUsedGb,
             loadedMemoryGb: 0,
           } : null);
-          const secondaryRunning = control?.runningModels?.some((running) => running.role === "secondary" && running.repository === model.repository);
+          const secondaryService = control?.modelServices?.find((service) => service.serviceName === model.secondaryServiceName);
+          const secondaryRunning = secondaryService?.status === "online" || (!model.secondaryServiceName && control?.runningModels?.some((running) => running.role === "secondary" && running.repository === model.repository));
           const status = model.archiveOnly ? model.status : model.active
             ? "active"
             : secondaryRunning
-              ? "secondary running"
+              ? model.secondaryServiceName ? "running" : "secondary running"
             : loading
               ? "loading"
               : model.setupRequired
@@ -1136,6 +1137,8 @@ function ModelControlPanel() {
                 </div>
               ) : loading ? (
                 <button className="clear-button model-loading-button" disabled><RefreshCcw className="spin" size={15} />Loading {progress?.percent || 0}%</button>
+              ) : model.secondaryServiceName ? (
+                <button className={secondaryRunning ? "stop-button" : "primary"} onClick={() => sendAction(secondaryRunning ? "service-stop" : "service-start", null, model.secondaryServiceName)} disabled={controlsBusy || !model.installed || !secondaryService || secondaryService.status === "missing" || (!secondaryRunning && (Boolean(secondaryService.startBlockedReason) || control?.primaryExclusive))} title={secondaryService?.startBlockedReason || ""}>{secondaryRunning ? <Square size={15} /> : <Play size={15} />}{secondaryRunning ? "Stop audio model" : "Start audio model"}</button>
               ) : model.active ? (
                 <button className="clear-button" onClick={() => sendAction("restart")} disabled={controlsBusy}><RefreshCcw size={15} />Restart Active</button>
               ) : model.setupRequired ? (

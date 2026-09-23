@@ -453,7 +453,7 @@ Merge entries from `config/archive-models.example.json` into your local model ca
 
 An operator-managed catalog entry may set `runtime: "managed"` and `launcher` to an absolute compute-host shell script path (or a `$HOME`-relative path). This is trusted local configuration, never browser input. Install and review the runtime separately. The launcher must honor the configured primary port, model aliases, authentication and container name; remain in the foreground; and stop its container on termination. The controller preserves its existing readiness check and rollback behavior.
 
-Set `exclusiveHost: true` for models that need the host's memory without secondary LLMs. Activation is rejected before stopping the primary if secondary model processes are detected or process telemetry cannot be verified. Secondary services are not stopped automatically. Specify a `readyMarker` path, but create the marker file only after inference is independently validated. See `config/managed-models.example.json` for a Mia Flash Next example; adding that entry does not install its launcher or download weights.
+Set `exclusiveHost: true` for models that need the host's memory without secondary services. The controller checks process telemetry, stops configured secondary services, and waits for their GPU processes to exit before loading the exclusive model. Activation is rejected if process telemetry is unavailable or an unmanaged model is running. Specify a `readyMarker` path, but create the marker file only after inference is independently validated. See `config/managed-models.example.json` for a Mia Flash Next example; adding that entry does not install its launcher or download weights.
 
 ### Control primary and secondary model services
 
@@ -498,3 +498,7 @@ is not yet exposed in this interface.
 Secondary model entries may declare `conflictsWith`, an array of other configured
 service names. The dashboard blocks starts in either direction while a conflicting
 service is online. Use this for services that cannot safely share your Spark's memory.
+
+### Speaker diarization
+
+The Model Control tab can show **Nemotron 3 Diarization** as a separate audio model with its own Start/Stop button. It identifies speaker segments in audio and does not use or replace the primary chat endpoint. See [the Spark deployment example](examples/nemotron-diarization/README.md) for the pinned checkpoint, authenticated service, and PM2 configuration. Its live card appears when the audio process is running; the coding and visual LLM benchmark picker excludes it.
