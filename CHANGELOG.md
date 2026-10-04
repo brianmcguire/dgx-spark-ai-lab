@@ -40,7 +40,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 
-- Show Spark Doctor findings using their actual title, explanation, and next step; distinguish incomplete scans from clean results.
+- Show Spark Doctor findings using their actual title, explanation, and next step; distinguish incomplete scans and collector errors from clean results.
 - Keep informational findings visible without marking the dashboard unhealthy. Verified the existing Run Spark Doctor action with Spark Doctor 0.3.1.
 
 ## 1.5.2 - 2026-09-12

@@ -3128,6 +3128,11 @@ textarea:focus-visible {
   line-height: 1.45;
 }
 
+.error-banner span {
+  display: block;
+  margin-top: 0.3rem;
+}
+
 .truncate {
   overflow: hidden;
   text-overflow: ellipsis;

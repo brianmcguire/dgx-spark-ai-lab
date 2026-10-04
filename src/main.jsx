@@ -2315,7 +2315,7 @@ function GatewayPanel({ gateway }) {
 function SparkDoctorPanel({ dgx, lastRun }) {
   const latest = lastRun?.scan || dgx?.latestSparkDoctor?.data;
   const report = lastRun?.report;
-  const { findings, incomplete, ok, clean, label } = doctorScanSummary(latest, lastRun?.exitCode);
+  const { findings, incompleteChecks, incomplete, ok, clean, label } = doctorScanSummary(latest, lastRun?.exitCode);
   return (
     <section className="panel wide">
       <div className="panel-title">
@@ -2326,7 +2326,11 @@ function SparkDoctorPanel({ dgx, lastRun }) {
         <StatusPill ok={ok}>{label}</StatusPill>
       </div>
       <p className="integration-credit">Optional diagnostics provided by the external <a href="https://github.com/joeynyc/spark-doctor" target="_blank" rel="noreferrer">Spark Doctor project</a> (MIT).</p>
-      {incomplete && <div className="error-banner">Some Spark Doctor checks did not finish. Review the report before treating the scan as clean.</div>}
+      {incomplete && <div className="error-banner">
+        <strong>Some checks did not finish.</strong>
+        {incompleteChecks.map((check) => <span key={check.name}>{check.name}: {(check.errors || []).join("; ") || "collection failed"}</span>)}
+        {!incompleteChecks.length && <span>Review the report before treating this scan as clean.</span>}
+      </div>}
       {findings.length ? (
         <div className="table findings">
           <div className="row head"><span>Severity</span><span>Rule</span><span>Message</span></div>
