@@ -3113,6 +3113,21 @@ textarea:focus-visible {
   grid-template-columns: 6rem 10rem minmax(0, 1fr);
 }
 
+.doctor-finding-copy {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.doctor-finding-copy strong {
+  color: #e5f0ec;
+}
+
+.doctor-finding-copy small {
+  color: #abc4b8;
+  line-height: 1.45;
+}
+
 .truncate {
   overflow: hidden;
   text-overflow: ellipsis;

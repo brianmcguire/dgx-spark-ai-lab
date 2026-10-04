@@ -1,5 +1,6 @@
 import { ImageStudio } from "./image-studio.jsx";
 import { partitionModels } from "./model-archive.js";
+import { doctorScanSummary } from "./doctor-status.js";
 import React, { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
@@ -2180,11 +2181,12 @@ function DgxOverview({ dgx, liveGpu }) {
   const availGb = bytesToGb(mem.MemAvailable);
   const usedPct = totalGb ? ((totalGb - availGb) / totalGb) * 100 : 0;
   const latest = dgx?.latestSparkDoctor?.data;
-  const overall = latest?.overall || latest?.summary?.overall || "OK";
+  const doctor = doctorScanSummary(latest);
+  const overall = !latest ? "NOT RUN" : doctor.incomplete ? "INCOMPLETE" : doctor.actionableCount ? "ATTENTION" : "OK";
 
   return (
     <div className="overview-grid">
-      {dgx?.sparkDoctor?.available && <MetricCard icon={CheckCircle2} label="Spark Doctor" value={overall} detail={dgx?.latestSparkDoctor?.path || "No saved report yet"} tone={overall === "OK" ? "good" : "warn"} />}
+      {dgx?.sparkDoctor?.available && <MetricCard icon={CheckCircle2} label="Spark Doctor" value={overall} detail={latest ? `${doctor.label} · ${new Date(latest.created_at).toLocaleString()}` : "No saved report yet"} tone={overall === "OK" ? "good" : "warn"} />}
       <MetricCard icon={Gauge} label="GPU utilization" value={`${number.format(gpu.util || 0)}%`} detail={`${gpu.name || "NVIDIA GPU"} · driver ${gpu.driver || "unknown"}`} gauge={gpu.util || 0} />
       <MetricCard icon={Zap} label="Power / Temp" value={`${number.format(gpu.power || 0)} W`} detail={`${number.format(gpu.clock || 0)} MHz`} temperature={gpu.temp || 0} tone={(gpu.temp || 0) > 80 ? "warn" : "default"} />
       <MetricCard icon={MemoryStick} label="Memory used" value={`${number.format(usedPct)}%`} detail={`${number.format(availGb)} GB free · ${number.format(totalGb)} GB total`} gauge={usedPct} />
@@ -2313,27 +2315,36 @@ function GatewayPanel({ gateway }) {
 function SparkDoctorPanel({ dgx, lastRun }) {
   const latest = lastRun?.scan || dgx?.latestSparkDoctor?.data;
   const report = lastRun?.report;
-  const findings = latest?.findings || [];
+  const { findings, incomplete, ok, clean, label } = doctorScanSummary(latest, lastRun?.exitCode);
   return (
     <section className="panel wide">
       <div className="panel-title">
         <div>
           <h2>Spark Doctor Findings</h2>
-          <p>{lastRun?.runDir || dgx?.latestSparkDoctor?.path || "Run a scan to generate a dashboard report."}</p>
+          <p>{latest?.created_at ? `Scanned ${new Date(latest.created_at).toLocaleString()} · Spark Doctor ${latest.spark_doctor_version || ""}` : "Run a scan to generate a dashboard report."}</p>
         </div>
-        <StatusPill ok={!findings.length}>{findings.length ? `${findings.length} findings` : "clean"}</StatusPill>
+        <StatusPill ok={ok}>{label}</StatusPill>
       </div>
       <p className="integration-credit">Optional diagnostics provided by the external <a href="https://github.com/joeynyc/spark-doctor" target="_blank" rel="noreferrer">Spark Doctor project</a> (MIT).</p>
+      {incomplete && <div className="error-banner">Some Spark Doctor checks did not finish. Review the report before treating the scan as clean.</div>}
       {findings.length ? (
         <div className="table findings">
           <div className="row head"><span>Severity</span><span>Rule</span><span>Message</span></div>
           {findings.map((finding, index) => (
-            <div className="row" key={index}><span>{finding.severity}</span><span>{finding.rule_id || finding.rule}</span><span>{finding.message}</span></div>
+            <div className="row" key={finding.rule_id || index}>
+              <span>{finding.severity}</span>
+              <span>{finding.rule_id || finding.rule}</span>
+              <span className="doctor-finding-copy">
+                <strong>{finding.title || finding.message || "Finding"}</strong>
+                {finding.explanation && <span>{finding.explanation}</span>}
+                {finding.recommended_actions?.[0] && <small>Next: {finding.recommended_actions[0]}</small>}
+              </span>
+            </div>
           ))}
         </div>
-      ) : (
+      ) : clean ? (
         <div className="success-slab"><CheckCircle2 size={20} />No issues detected by the current Spark Doctor rule set.</div>
-      )}
+      ) : !latest ? <p className="empty">No Spark Doctor scan has been run yet.</p> : null}
       {report && <pre className="report-snippet">{report.split("\n").slice(0, 28).join("\n")}</pre>}
     </section>
   );
@@ -2376,6 +2387,7 @@ function App() {
     setError("");
     try {
       const result = await api("/api/spark-doctor/run", { method: "POST" });
+      if (!result.ok || !result.scan) throw new Error(result.error || "Spark Doctor did not produce a scan report.");
       setLastRun(result);
       await refresh(true);
     } catch (err) {
@@ -2441,7 +2453,7 @@ function App() {
   const dgx = snapshot?.dgx;
   const pm2 = snapshot?.pm2;
   const gateway = snapshot?.gateway;
-  const ok = useMemo(() => dgx?.ok !== false && !((dgx?.latestSparkDoctor?.data?.findings || []).length), [dgx]);
+  const ok = useMemo(() => dgx?.ok !== false && (!dgx?.latestSparkDoctor?.data || doctorScanSummary(dgx.latestSparkDoctor.data).ok), [dgx]);
 
   return (
     <div className="app-shell">

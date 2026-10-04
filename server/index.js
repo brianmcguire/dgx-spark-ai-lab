@@ -2,6 +2,7 @@ import { imageServiceRoute } from "./image-service.js";
 import { createModelServiceController, secondaryCommand } from "./model-service-controls.js";
 import { activationBlockReason, assertModelActivationAllowed } from "./model-eligibility.js";
 import { createManagedLaunchScript, assertExclusiveModelAvailable } from "./managed-launcher.js";
+import { doctorScanSummary } from "../src/doctor-status.js";
 import { createServer } from "node:http";
 import { execFile } from "node:child_process";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
@@ -2521,7 +2522,8 @@ function historyPoint(snapshot) {
   const totalGb = bytesToGb(mem.MemTotal);
   const availGb = bytesToGb(mem.MemAvailable);
   const usedPct = totalGb ? ((totalGb - availGb) / totalGb) * 100 : null;
-  const findings = snapshot.dgx?.latestSparkDoctor?.data?.findings || [];
+  const doctor = doctorScanSummary(snapshot.dgx?.latestSparkDoctor?.data);
+  const findings = doctor.findings;
   const pm2Processes = snapshot.pm2?.processes || [];
   const onlinePm2 = pm2Processes.filter((proc) => proc.status === "online").length;
   const modelProcesses = snapshot.dgx?.processes || [];
@@ -2565,7 +2567,7 @@ function historyPoint(snapshot) {
     latencyThresholds,
     dgxOk: snapshot.dgx?.ok !== false,
     pm2Ok: snapshot.pm2?.ok === true,
-    healthScore: snapshot.dgx?.ok !== false && snapshot.pm2?.ok === true && !findings.length ? 100 : 0,
+    healthScore: snapshot.dgx?.ok !== false && snapshot.pm2?.ok === true && (!snapshot.dgx?.latestSparkDoctor?.data || doctor.ok) ? 100 : 0,
     sparkDoctorFindings: findings.length,
     gpuUtil: Number.isFinite(gpu.util) ? gpu.util : null,
     gpuPower: Number.isFinite(gpu.power) ? gpu.power : null,
